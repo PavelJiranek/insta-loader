@@ -7,6 +7,7 @@ import instaloader
 
 from insta_loader import organizer
 from insta_loader import progress as prog
+from insta_loader import summarizer
 from insta_loader.cli import Config
 
 _SLEEP = float(os.environ.get("INSTA_SLEEP", "0"))
@@ -149,3 +150,5 @@ def run(config: Config) -> None:
                     time.sleep(_SLEEP)
 
             organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images, slides)
+
+    summarizer.run(config.username, config.output_dir)
