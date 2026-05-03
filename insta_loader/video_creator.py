@@ -84,7 +84,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
     else:
         cmd = [
             _FFMPEG,
-            "-loop", "1", "-t", "15", "-i", str(slide_path),
+            "-loop", "1", "-t", "10", "-i", str(slide_path),
             "-vf", _VF,
             "-r", "30",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",

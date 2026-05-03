@@ -139,7 +139,7 @@ def test_normalize_slide_image_uses_loop_and_no_audio(mock_run, tmp_path):
     cmd = mock_run.call_args[0][0]
     assert cmd[0] == _FFMPEG
     assert "-loop" in cmd
-    assert "15" in cmd
+    assert "10" in cmd
     assert "-an" in cmd
     assert "-c:a" not in cmd
     assert out == tmp_path / "clip_001.mp4"
