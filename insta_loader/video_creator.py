@@ -66,10 +66,17 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
 
 
 _VF = (
-    "scale=1080:1920:force_original_aspect_ratio=decrease,"
+    "scale=1080:1920:force_original_aspect_ratio=decrease:out_range=tv,"
     "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
     "format=yuv420p"
 )
+
+_COLOR_FLAGS = [
+    "-color_range", "tv",
+    "-colorspace", "bt709",
+    "-color_primaries", "bt709",
+    "-color_trc", "bt709",
+]
 
 
 def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10) -> Path:
@@ -79,7 +86,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
             _FFMPEG, "-i", str(slide_path),
             "-vf", _VF,
             "-r", "30",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
             "-c:a", "aac", "-ar", "44100",
             "-y", str(out),
         ]
@@ -90,7 +97,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
             "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             "-vf", _VF,
             "-r", "30",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
             "-c:a", "aac",
             "-shortest",
             "-y", str(out),
@@ -113,7 +120,7 @@ def _concat_clips(clip_paths: list, output_path: Path) -> None:
         *inputs,
         "-filter_complex", filter_str,
         "-map", "[outv]", "-map", "[outa]",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
         "-c:a", "aac", "-ar", "44100",
         "-y", str(output_path),
     ]
