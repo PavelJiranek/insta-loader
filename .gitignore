@@ -19,3 +19,5 @@ session-*
 .DS_Store
 .superpowers/
 .claude/
+.idea/
+*.svg
