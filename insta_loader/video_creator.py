@@ -39,7 +39,7 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
 
     suffix = 1
     while True:
-        candidate = output_path.parent / f"{output_path.stem}_{suffix}.mp4"
+        candidate = output_path.parent / f"{output_path.stem}_{suffix}{output_path.suffix}"
         if not candidate.exists():
             break
         suffix += 1
