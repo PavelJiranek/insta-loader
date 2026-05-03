@@ -11,9 +11,11 @@ Two new files: `insta_loader/youtube_meta.py` (metadata generation) and `insta_l
 ## CLI
 
 ```
-python insta.py youtube-meta   <username> [--highlight NAME] [--output-dir DIR]
-python insta.py youtube-upload <username> [--highlight NAME] [--output-dir DIR] [--client-secrets PATH]
+python insta.py youtube-meta   <insta-username> [--highlight NAME] [--output-dir DIR]
+python insta.py youtube-upload <insta-username> [--highlight NAME] [--output-dir DIR] [--client-secrets PATH] [--playlist NAME]
 ```
+
+`<insta-username>` is the Instagram username, which is also the folder name under `output/`. All YouTube output is grouped under `output/<insta-username>/youtube/`.
 
 ## Output structure
 
@@ -75,7 +77,7 @@ Examples:
 
 From flag emoji(s):
 - Country name (via `pycountry`)
-- Continent (bundled dict, 8 entries)
+- Continent — two tags for the Americas: both `Americas` and `North America` or `South America` depending on country; other continents get one tag (e.g. `Europe`, `Africa`, `Asia`, `Oceania`)
 - `EU` if country is an EU member (bundled list of 27 ISO codes)
 
 From place name:
@@ -90,7 +92,8 @@ US state enrichment:
 - If country resolves to `US` (from flag or city lookup), check place name against `CITY_TO_STATE` and add the state name as a tag
 
 Example tags for `🇿🇦 Cape Town · Part 2`: `["Cape Town", "South Africa", "Africa"]`
-Example tags for `🇺🇸 Los Angeles`: `["Los Angeles", "California", "United States", "Americas"]`
+Example tags for `🇺🇸 Los Angeles`: `["Los Angeles", "California", "United States", "North America", "Americas"]`
+Example tags for `🇧🇷 São Paulo`: `["São Paulo", "Brazil", "South America", "Americas"]`
 Example tags for `🇦🇹 Zillertal`: `["Zillertal", "Austria", "Europe", "EU"]`
 
 ### Date range format
@@ -110,14 +113,24 @@ Internal functions:
 | Function | Responsibility |
 |---|---|
 | `_get_credentials(client_secrets_path)` | Load or refresh OAuth token; open browser on first run |
-| `_upload_video(youtube, meta, video_path)` | Call YouTube Data API v3 `videos.insert` |
+| `_get_or_create_playlist(youtube, name)` | Find existing playlist by name or create it (private); return playlist ID |
+| `_upload_video(youtube, meta, video_path)` | Call YouTube Data API v3 `videos.insert`; return video ID |
+| `_add_to_playlist(youtube, playlist_id, video_id)` | Call `playlistItems.insert` to add video to playlist |
 | `_mark_uploaded(meta_path, youtube_id)` | Update JSON file with `uploaded: true` and `youtube_id` |
+
+### Playlist
+
+- `--playlist NAME` flag (default: `"Story Highlights"`)
+- On first upload of a run, `_get_or_create_playlist` searches the authenticated user's playlists for one matching `NAME` (case-insensitive). If not found, creates it as a private playlist.
+- Every successfully uploaded video is added to the playlist via `playlistItems.insert`.
+- The playlist ID is stored in memory for the duration of the run (one lookup per run, not per video).
+- Required additional OAuth scope: `https://www.googleapis.com/auth/youtube` (covers both upload and playlist management).
 
 ### Authentication
 
 - `client_secrets.json` path: `--client-secrets` flag, or `YOUTUBE_CLIENT_SECRETS` env var, or default `~/.config/instaloader/youtube_client_secrets.json`
 - Token saved to `~/.config/instaloader/youtube_token.json`
-- Scopes: `https://www.googleapis.com/auth/youtube.upload`
+- Scopes: `https://www.googleapis.com/auth/youtube` (covers upload and playlist management)
 - If `client_secrets.json` is missing, print setup instructions and exit 1:
   ```
   ✗  YouTube client secrets not found at <path>.
@@ -154,6 +167,7 @@ class YoutubeConfig:
     highlight: Optional[str] = None
     output_dir: Optional[str] = None
     client_secrets: Optional[str] = None
+    playlist: str = "Story Highlights"
 ```
 
 ## Dependencies
@@ -187,9 +201,11 @@ Added to `requirements.txt`:
 
 `tests/test_youtube_uploader.py`:
 - `_get_credentials`: loads existing token, triggers browser flow when missing
+- `_get_or_create_playlist`: returns existing playlist ID, creates new if not found
 - `_upload_video`: correct API call shape (mocked)
+- `_add_to_playlist`: correct playlistItems.insert call (mocked)
 - `_mark_uploaded`: updates JSON correctly
-- `run`: skips already-uploaded, skips missing video, handles API error
+- `run`: skips already-uploaded, skips missing video, handles API error, adds to playlist
 
 ## Future
 
