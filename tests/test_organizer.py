@@ -15,6 +15,10 @@ def test_sanitize_name_plain_name_unchanged():
     assert sanitize_name("Travel") == "Travel"
 
 
+def test_sanitize_name_both_space_and_slash():
+    assert sanitize_name("Travel/Europe 2024") == "Travel-Europe_2024"
+
+
 def test_slide_filename_zero_pads_single_digit():
     assert slide_filename("Travel", 1) == "Travel_01"
 
@@ -56,6 +60,11 @@ def test_highlight_dir_creates_folder(tmp_path):
     result = highlight_dir(tmp_path, "Travel")
     assert result.exists()
     assert result.name == "Travel"
+
+
+def test_highlight_dir_returns_correct_path(tmp_path):
+    result = highlight_dir(tmp_path, "Travel")
+    assert result == tmp_path / "Travel"
 
 
 def test_highlight_dir_sanitizes_name(tmp_path):

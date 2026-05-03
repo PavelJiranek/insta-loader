@@ -16,6 +16,7 @@ def highlight_dir(base_dir: Union[str, Path], highlight_title: str) -> Path:
 
 
 def slide_filename(highlight_title: str, idx: int) -> str:
+    # Returns the date-free stem; downloader appends _{date_utc} via instaloader's template engine.
     return f"{sanitize_name(highlight_title)}_{idx:02d}"
 
 
