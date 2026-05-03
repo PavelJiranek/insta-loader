@@ -53,12 +53,22 @@ def run(config: Config) -> None:
             task_id = prog.add_highlight_task(progress, highlight.title, len(items))
             folder = organizer.highlight_dir(base_dir, highlight.title)
 
+            downloaded = 0
+            videos = 0
+            images = 0
+
             for idx, item in enumerate(items, start=1):
                 filename = organizer.slide_filename(highlight.title, idx)
+                is_video = item.is_video
 
                 if organizer.slide_exists(folder, highlight.title, idx):
                     prog.log_skip(filename)
                     prog.advance(progress, task_id)
+                    downloaded += 1
+                    if is_video:
+                        videos += 1
+                    else:
+                        images += 1
                     continue
 
                 L.dirname_pattern = str(folder)
@@ -67,8 +77,16 @@ def run(config: Config) -> None:
                 try:
                     L.download_storyitem(item, highlight.unique_id)
                 except Exception as e:
+                    organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images)
                     print(f"\n✗  Error on slide {idx} of '{highlight.title}': {e}")
                     print("   Resume by running the same command again.")
                     sys.exit(1)
 
+                downloaded += 1
+                if is_video:
+                    videos += 1
+                else:
+                    images += 1
                 prog.advance(progress, task_id, filename)
+
+            organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images)

@@ -1,6 +1,7 @@
+import json
 import pytest
 from pathlib import Path
-from insta_loader.organizer import sanitize_name, slide_filename, slide_exists, highlight_dir
+from insta_loader.organizer import sanitize_name, slide_filename, slide_exists, highlight_dir, write_metadata
 
 
 def test_sanitize_name_replaces_spaces():
@@ -76,3 +77,39 @@ def test_highlight_dir_is_idempotent(tmp_path):
     highlight_dir(tmp_path, "Travel")
     highlight_dir(tmp_path, "Travel")  # second call must not raise
     assert (tmp_path / "Travel").exists()
+
+
+def test_write_metadata_creates_file(tmp_path):
+    write_metadata(tmp_path, "Travel", total=5, downloaded=5, videos=3, images=2)
+    assert (tmp_path / "metadata.json").exists()
+
+
+def test_write_metadata_complete_status(tmp_path):
+    write_metadata(tmp_path, "Travel", total=5, downloaded=5, videos=3, images=2)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["status"] == "complete"
+
+
+def test_write_metadata_partial_status(tmp_path):
+    write_metadata(tmp_path, "Travel", total=5, downloaded=3, videos=2, images=1)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["status"] == "partial"
+
+
+def test_write_metadata_fields(tmp_path):
+    write_metadata(tmp_path, "Travel", total=4, downloaded=4, videos=1, images=3)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["highlight_title"] == "Travel"
+    assert data["total_items"] == 4
+    assert data["downloaded"] == 4
+    assert data["videos"] == 1
+    assert data["images"] == 3
+    assert "last_updated" in data
+
+
+def test_write_metadata_overwrites_on_rerun(tmp_path):
+    write_metadata(tmp_path, "Travel", total=5, downloaded=3, videos=1, images=2)
+    write_metadata(tmp_path, "Travel", total=5, downloaded=5, videos=2, images=3)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["downloaded"] == 5
+    assert data["status"] == "complete"

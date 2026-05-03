@@ -10,11 +10,17 @@ def make_config(username="natgeo", output_dir=None, highlight=None):
     return Config(username=username, output_dir=output_dir, highlight=highlight)
 
 
+def make_mock_item(is_video=False):
+    item = MagicMock()
+    item.is_video = is_video
+    return item
+
+
 def make_mock_highlight(title, num_items=2):
     h = MagicMock()
     h.title = title
     h.unique_id = "hl_123"
-    h.get_items.return_value = [MagicMock() for _ in range(num_items)]
+    h.get_items.return_value = [make_mock_item() for _ in range(num_items)]
     return h
 
 
@@ -151,3 +157,50 @@ def test_downloads_all_highlights_when_none_specified(mock_organizer, mock_il, m
 
     # highlight=None — should process both without exiting
     run(make_config(output_dir=str(tmp_path)))
+
+
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+@patch("insta_loader.downloader.organizer")
+def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_prog, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = False
+    mock_il.Profile.from_username.return_value = mock_profile
+    items = [make_mock_item(is_video=True), make_mock_item(is_video=False)]
+    highlight = MagicMock()
+    highlight.title = "Travel"
+    highlight.unique_id = "hl_123"
+    highlight.get_items.return_value = items
+    mock_loader.get_highlights.return_value = [highlight]
+    mock_organizer.highlight_dir.return_value = tmp_path
+    mock_organizer.slide_filename.return_value = "Travel_01"
+    mock_organizer.slide_exists.return_value = False
+
+    run(make_config(highlight="Travel", output_dir=str(tmp_path)))
+
+    mock_organizer.write_metadata.assert_called_once_with(
+        tmp_path, "Travel", 2, 2, 1, 1
+    )
+
+
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+@patch("insta_loader.downloader.organizer")
+def test_write_metadata_called_on_error(mock_organizer, mock_il, mock_prog, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = False
+    mock_il.Profile.from_username.return_value = mock_profile
+    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=1)]
+    mock_organizer.highlight_dir.return_value = tmp_path
+    mock_organizer.slide_filename.return_value = "Travel_01"
+    mock_organizer.slide_exists.return_value = False
+    mock_loader.download_storyitem.side_effect = Exception("network error")
+
+    with pytest.raises(SystemExit):
+        run(make_config(highlight="Travel", output_dir=str(tmp_path)))
+
+    mock_organizer.write_metadata.assert_called_once()
