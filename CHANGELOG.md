@@ -15,6 +15,10 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Overall `[cyan]Progress` task row added to the `videos` command Rich progress bar showing N/M highlights done
 - Elapsed time baked into each video task row description when it completes (e.g. `Video: Travel (2m35s)`) — fixes the misleading `0:00:00` that Rich shows for completed tasks
 
+### Fixed
+
+- **ffmpeg error on video clips with no audio track**: the concat filtergraph referenced `[N:a:0]` for every clip, causing an `Invalid argument` error when a video slide had no audio stream; `_normalize_slide` now probes each video for an audio stream first and adds a silent `anullsrc` track when none is found
+
 ### Changed
 
 - `videos --update`: skipped (up-to-date) highlights now print `✓  <title> — up to date` in green instead of dim grey

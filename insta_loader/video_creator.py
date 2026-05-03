@@ -103,17 +103,37 @@ _COLOR_FLAGS = [
 ]
 
 
+def _has_audio(path: Path) -> bool:
+    result = subprocess.run([_FFMPEG, "-i", str(path)], capture_output=True)
+    return b"Audio:" in result.stderr
+
+
 def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10) -> Path:
     out = tmp_dir / f"clip_{index:03d}.mp4"
     if is_video:
-        cmd = [
-            _FFMPEG, "-i", str(slide_path),
-            "-vf", _VF,
-            "-r", "30",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
-            "-c:a", "aac", "-ar", "44100",
-            "-y", str(out),
-        ]
+        if _has_audio(slide_path):
+            cmd = [
+                _FFMPEG, "-i", str(slide_path),
+                "-vf", _VF,
+                "-r", "30",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                "-c:a", "aac", "-ar", "44100",
+                "-y", str(out),
+            ]
+        else:
+            # Video has no audio track — add a silent one so the concat filter works
+            cmd = [
+                _FFMPEG,
+                "-i", str(slide_path),
+                "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+                "-filter_complex", f"[0:v]{_VF}[vout]",
+                "-map", "[vout]", "-map", "1:a",
+                "-r", "30",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                "-c:a", "aac", "-ar", "44100",
+                "-shortest",
+                "-y", str(out),
+            ]
     else:
         cmd = [
             _FFMPEG,

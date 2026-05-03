@@ -165,6 +165,26 @@ def test_normalize_slide_video_preserves_audio(mock_run, tmp_path):
 
 
 @patch("insta_loader.video_creator.subprocess.run")
+def test_normalize_slide_video_no_audio_adds_anullsrc(mock_run, tmp_path):
+    vid = tmp_path / "slide.mp4"
+    vid.touch()
+
+    # First call is _has_audio probe: stderr has no "Audio:" → no audio track
+    probe_result = MagicMock()
+    probe_result.stderr = b"video only stream info"
+    encode_result = MagicMock()
+    mock_run.side_effect = [probe_result, encode_result]
+
+    out = _normalize_slide(vid, 3, tmp_path, is_video=True)
+
+    assert mock_run.call_count == 2
+    encode_cmd = mock_run.call_args_list[1][0][0]
+    assert "anullsrc" in " ".join(encode_cmd)
+    assert "-shortest" in encode_cmd
+    assert out == tmp_path / "clip_003.mp4"
+
+
+@patch("insta_loader.video_creator.subprocess.run")
 def test_normalize_slide_both_use_scale_filter(mock_run, tmp_path):
     img = tmp_path / "slide.jpg"
     img.touch()
