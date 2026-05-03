@@ -12,7 +12,9 @@ from insta_loader.youtube_uploader import (
     _upload_video,
     _add_to_playlist,
     _mark_uploaded,
+    run as run_upload,
 )
+from insta_loader.cli import YoutubeConfig
 
 
 def test_resolve_secrets_path_uses_arg():
@@ -152,3 +154,161 @@ def test_mark_uploaded_updates_json(tmp_path):
     assert updated["uploaded"] is True
     assert updated["youtube_id"] == "vid_xyz"
     assert updated["youtube_url"] == "https://www.youtube.com/watch?v=vid_xyz"
+
+
+def _make_meta_file(youtube_dir, folder_name, uploaded=False,
+                    youtube_id=None, video_path=None):
+    youtube_dir.mkdir(parents=True, exist_ok=True)
+    if video_path is None:
+        video_path = f"output/test/videos/{folder_name}.mp4"
+    data = {
+        "highlight_folder": folder_name,
+        "video_path": video_path,
+        "youtube": {
+            "title": folder_name,
+            "description": "desc",
+            "tags": ["tag"],
+            "category_id": "19",
+            "privacy_status": "private",
+        },
+        "uploaded": uploaded,
+        "youtube_id": youtube_id,
+    }
+    (youtube_dir / f"{folder_name}.json").write_text(json.dumps(data))
+
+
+def test_run_skips_already_uploaded(tmp_path, capsys):
+    youtube_dir = tmp_path / "youtube"
+    _make_meta_file(youtube_dir, "Travel", uploaded=True, youtube_id="existing")
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+        ))
+
+    out = capsys.readouterr().out
+    assert "skipped" in out.lower()
+
+
+def test_run_skips_missing_video(tmp_path, capsys):
+    youtube_dir = tmp_path / "youtube"
+    _make_meta_file(youtube_dir, "Travel", video_path="/nonexistent/Travel.mp4")
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+        ))
+
+    out = capsys.readouterr().out
+    assert "not found" in out.lower()
+
+
+def test_run_marks_uploaded_on_success(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    _make_meta_file(youtube_dir, "Travel",
+                    video_path=str(videos_dir / "Travel.mp4"))
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist", return_value="PL1"), \
+         patch("insta_loader.youtube_uploader._upload_video", return_value="vid_new"), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+        ))
+
+    updated = json.loads((youtube_dir / "Travel.json").read_text())
+    assert updated["uploaded"] is True
+    assert updated["youtube_id"] == "vid_new"
+
+
+def test_run_handles_api_error_and_continues(tmp_path, capsys):
+    youtube_dir = tmp_path / "youtube"
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    (videos_dir / "Summer.mp4").touch()
+    _make_meta_file(youtube_dir, "Travel",
+                    video_path=str(videos_dir / "Travel.mp4"))
+    _make_meta_file(youtube_dir, "Summer",
+                    video_path=str(videos_dir / "Summer.mp4"))
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist", return_value="PL1"), \
+         patch("insta_loader.youtube_uploader._upload_video",
+               side_effect=[Exception("quota exceeded"), "vid_summer"]), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+        ))
+
+    out = capsys.readouterr().out
+    assert "quota exceeded" in out.lower() or "failed" in out.lower()
+    summer = json.loads((youtube_dir / "Summer.json").read_text())
+    assert summer["uploaded"] is True
+
+
+def test_run_filters_by_highlight_name(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    (videos_dir / "Summer.mp4").touch()
+    _make_meta_file(youtube_dir, "Travel",
+                    video_path=str(videos_dir / "Travel.mp4"))
+    _make_meta_file(youtube_dir, "Summer",
+                    video_path=str(videos_dir / "Summer.mp4"))
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist", return_value="PL1"), \
+         patch("insta_loader.youtube_uploader._upload_video", return_value="vid_t"), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+            highlight="travel",
+        ))
+
+    travel = json.loads((youtube_dir / "Travel.json").read_text())
+    summer = json.loads((youtube_dir / "Summer.json").read_text())
+    assert travel["uploaded"] is True
+    assert summer["uploaded"] is False
+
+
+def test_run_exits_when_no_metadata(tmp_path):
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with pytest.raises(SystemExit) as exc:
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+        ))
+    assert exc.value.code == 1

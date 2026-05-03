@@ -117,3 +117,58 @@ def _mark_uploaded(meta_path: Path, youtube_id: str) -> None:
     meta["youtube_id"] = youtube_id
     meta["youtube_url"] = f"https://www.youtube.com/watch?v={youtube_id}"
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def run(config: YoutubeConfig) -> None:
+    base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
+    youtube_dir = base / "youtube"
+
+    if not youtube_dir.exists():
+        print(f"✗  No metadata found at {youtube_dir}. Run youtube-meta first.")
+        sys.exit(1)
+
+    meta_files = list(youtube_dir.glob("*.json"))
+    if not meta_files:
+        print(f"✗  No metadata files found in {youtube_dir}.")
+        sys.exit(1)
+
+    if config.highlight:
+        q = config.highlight.lower()
+        meta_files = [f for f in meta_files if q in f.stem.lower()]
+        if not meta_files:
+            print(f"✗  No highlight matching '{config.highlight}'")
+            sys.exit(1)
+
+    secrets_path = _resolve_secrets_path(config.client_secrets)
+    creds = _get_credentials(secrets_path)
+    youtube = build("youtube", "v3", credentials=creds)
+
+    playlist_id: Optional[str] = None
+
+    for meta_path in meta_files:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        title = meta["youtube"]["title"]
+
+        if meta.get("uploaded"):
+            rprint(f"[dim]–  {title} skipped (already uploaded)[/dim]")
+            continue
+
+        video_path = Path(meta["video_path"])
+        if not video_path.exists():
+            rprint(f"[yellow]✗  {title} — video not found at {video_path}[/yellow]")
+            continue
+
+        if playlist_id is None:
+            playlist_id = _get_or_create_playlist(youtube, config.playlist)
+
+        try:
+            video_id = _upload_video(youtube, meta, video_path)
+            _add_to_playlist(youtube, playlist_id, video_id)
+            _mark_uploaded(meta_path, video_id)
+            rprint(f"[green]✓[/green]  {title} → youtube.com/watch?v={video_id} (private)")
+        except Exception as e:
+            err = str(e)
+            current = json.loads(meta_path.read_text(encoding="utf-8"))
+            current["upload_error"] = err
+            meta_path.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
+            rprint(f"[red]✗  {title} — upload failed: {err}[/red]")
