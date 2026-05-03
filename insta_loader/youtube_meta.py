@@ -232,3 +232,32 @@ def _build_tags(place_name: str, country_codes: list) -> list:
             seen.add(t)
             result.append(t)
     return result
+
+
+_MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _date_range(slides: list) -> str:
+    """Return formatted date range from first and last non-failed slides."""
+    dates = []
+    for s in slides:
+        if s.get("status") == "failed":
+            continue
+        d = s.get("date_utc", "")
+        m = re.match(r"(\d{4})-(\d{2})", d)
+        if m:
+            dates.append((int(m.group(1)), int(m.group(2))))
+
+    if not dates:
+        return ""
+
+    first_y, first_m = dates[0]
+    last_y, last_m = dates[-1]
+
+    if first_y == last_y and first_m == last_m:
+        return f"{_MONTHS[first_m - 1]} {first_y}"
+    elif first_y == last_y:
+        return f"{_MONTHS[first_m - 1]}–{_MONTHS[last_m - 1]} {first_y}"
+    else:
+        return f"{_MONTHS[first_m - 1]} {first_y}–{_MONTHS[last_m - 1]} {last_y}"

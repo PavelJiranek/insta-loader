@@ -112,3 +112,41 @@ def test_build_tags_europe_non_eu():
     tags = _build_tags("London", ["GB"])
     assert tags == ["London", "United Kingdom", "Europe"]
     assert "EU" not in tags
+
+
+from insta_loader.youtube_meta import _date_range
+
+
+def _slide(date_utc, status="downloaded"):
+    return {"date_utc": date_utc, "status": status}
+
+
+def test_date_range_same_month():
+    slides = [_slide("2025-11-01T00:00:00Z"), _slide("2025-11-15T00:00:00Z")]
+    assert _date_range(slides) == "Nov 2025"
+
+
+def test_date_range_adjacent_months_same_year():
+    slides = [_slide("2026-04-10T00:00:00Z"), _slide("2026-05-20T00:00:00Z")]
+    assert _date_range(slides) == "Apr–May 2026"
+
+
+def test_date_range_cross_year():
+    slides = [_slide("2025-12-20T00:00:00Z"), _slide("2026-01-05T00:00:00Z")]
+    assert _date_range(slides) == "Dec 2025–Jan 2026"
+
+
+def test_date_range_skips_failed_slides():
+    slides = [
+        _slide("2025-11-01T00:00:00Z"),
+        _slide("2026-05-01T00:00:00Z", status="failed"),
+    ]
+    assert _date_range(slides) == "Nov 2025"
+
+
+def test_date_range_empty_slides():
+    assert _date_range([]) == ""
+
+
+def test_date_range_all_failed():
+    assert _date_range([_slide("2025-11-01T00:00:00Z", status="failed")]) == ""
