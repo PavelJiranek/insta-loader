@@ -13,7 +13,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Design spec and implementation plan for `youtube-meta` and `youtube-upload` commands
 - CLI wiring for `youtube-meta` and `youtube-upload` subcommands in `insta.py`; `youtube-upload` uses lazy import to avoid ImportError when `youtube_uploader.py` doesn't exist yet
 - `youtube-meta` command generates per-highlight YouTube metadata JSON (title, description, tags, category, privacy)
-- `youtube-upload` will upload assembled MP4s as private YouTube videos and add them to a "Story Highlights" playlist
+- `youtube-upload` command uploads assembled MP4s as private YouTube videos and adds them to a "Story Highlights" playlist
 - Metadata builder: `_build_youtube_meta()` with full title/description/tags generation
 - Title generation from folder names: strips sequence numbers, splits camelCase, detects part numbers, appends date range
 - Tag enrichment: country name, continent, EU membership, US state — derived from flag emojis or city name lookup
@@ -28,6 +28,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `--playlist` flag (default `"Story Highlights"`) — creates playlist if not found, reuses if it exists
 - `youtube_url` field stored in metadata after successful upload
 - `outdated` field set to `true` when a re-encoded video has already been uploaded
+- YouTube upload orchestrator: `youtube_uploader.run()` discovers metadata, filters by highlight name if requested, skips already-uploaded and missing videos, handles API errors gracefully, marks videos as uploaded, and adds them to playlists
 
 #### V2.x — Video creator improvements
 - `--update` flag on `videos` command: re-encodes only highlights whose downloaded files are newer than the existing video, and encodes highlights with no video yet; marks YouTube metadata as `outdated: true` after re-encode
