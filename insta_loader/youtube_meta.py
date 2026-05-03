@@ -287,9 +287,10 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str) -> dict:
         desc_main += f" · {date_str}"
     description = f"{desc_main}\n\n@{username}"
 
+    video_path = str(Path("output") / username / "videos" / f"{folder_name}.mp4")
     return {
         "highlight_folder": folder_name,
-        "video_path": f"output/{username}/videos/{folder_name}.mp4",
+        "video_path": video_path,
         "youtube": {
             "title": title,
             "description": description,
@@ -306,11 +307,11 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str) -> dict:
 
 def _write_meta(youtube_dir: Path, folder_name: str, meta: dict) -> bool:
     """Write JSON file. Returns False (skipped) if already uploaded, True otherwise."""
+    youtube_dir.mkdir(parents=True, exist_ok=True)
     meta_path = youtube_dir / f"{folder_name}.json"
     if meta_path.exists():
-        existing = json.loads(meta_path.read_text())
+        existing = json.loads(meta_path.read_text(encoding="utf-8"))
         if existing.get("uploaded"):
             return False
-    youtube_dir.mkdir(parents=True, exist_ok=True)
-    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return True
