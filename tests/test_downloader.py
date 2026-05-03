@@ -131,22 +131,27 @@ def test_highlight_match_is_case_insensitive(mock_organizer, mock_il, mock_prog,
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_download_error_exits_1(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_download_error_skips_slide_and_continues(mock_organizer, mock_il, mock_prog, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=1)]
+    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=2)]
 
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
     mock_organizer.slide_exists.return_value = False
-    mock_loader.download_storyitem.side_effect = Exception("network error")
+    # First slide fails, second succeeds
+    mock_loader.download_storyitem.side_effect = [Exception("network error"), None]
 
-    with pytest.raises(SystemExit) as exc:
-        run(make_config(highlight="Travel", output_dir=str(tmp_path)))
-    assert exc.value.code == 1
+    run(make_config(highlight="Travel", output_dir=str(tmp_path)))
+
+    assert mock_loader.download_storyitem.call_count == 2
+    slides = mock_organizer.write_metadata.call_args[0][6]
+    statuses = [s["status"] for s in slides]
+    assert "failed" in statuses
+    assert "downloaded" in statuses
 
 
 @patch("insta_loader.downloader.prog")
@@ -201,7 +206,7 @@ def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_pro
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_write_metadata_called_on_error(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_write_metadata_records_failed_slide(mock_organizer, mock_il, mock_prog, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
@@ -213,10 +218,10 @@ def test_write_metadata_called_on_error(mock_organizer, mock_il, mock_prog, tmp_
     mock_organizer.slide_exists.return_value = False
     mock_loader.download_storyitem.side_effect = Exception("network error")
 
-    with pytest.raises(SystemExit):
-        run(make_config(highlight="Travel", output_dir=str(tmp_path)))
+    run(make_config(highlight="Travel", output_dir=str(tmp_path)))
 
-    mock_organizer.write_metadata.assert_called_once()
+    slides = mock_organizer.write_metadata.call_args[0][6]
+    assert slides[0]["status"] == "failed"
 
 
 @patch("insta_loader.downloader.instaloader")

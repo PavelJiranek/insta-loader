@@ -1,4 +1,6 @@
+import os
 import sys
+import time
 from pathlib import Path
 
 import instaloader
@@ -6,6 +8,8 @@ import instaloader
 from insta_loader import organizer
 from insta_loader import progress as prog
 from insta_loader.cli import Config
+
+_SLEEP = float(os.environ.get("INSTA_SLEEP", "0"))
 
 
 def _session_path(username: str) -> str:
@@ -110,6 +114,7 @@ def run(config: Config) -> None:
                 }
 
                 if organizer.slide_exists(folder, highlight.title, idx):
+                    slide["status"] = "skipped"
                     prog.log_skip(filename)
                     prog.advance(progress, task_id)
                     downloaded += 1
@@ -126,11 +131,13 @@ def run(config: Config) -> None:
                 try:
                     L.download_storyitem(item, highlight.unique_id)
                 except Exception as e:
-                    organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images, slides)
-                    print(f"\n✗  Error on slide {idx} of '{highlight.title}': {e}")
-                    print("   Resume by running the same command again.")
-                    sys.exit(1)
+                    slide["status"] = "failed"
+                    slides.append(slide)
+                    prog.advance(progress, task_id)
+                    print(f"\n⚠  Skipping slide {idx} of '{highlight.title}': {e}\n")
+                    continue
 
+                slide["status"] = "downloaded"
                 downloaded += 1
                 if is_video:
                     videos += 1
@@ -138,5 +145,7 @@ def run(config: Config) -> None:
                     images += 1
                 slides.append(slide)
                 prog.advance(progress, task_id, filename)
+                if _SLEEP:
+                    time.sleep(_SLEEP)
 
             organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images, slides)
