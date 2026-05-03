@@ -38,6 +38,7 @@ def write_metadata(
     downloaded: int,
     videos: int,
     images: int,
+    slides: list = None,
 ) -> None:
     data = {
         "highlight_title": title,
@@ -47,5 +48,6 @@ def write_metadata(
         "images": images,
         "status": "complete" if downloaded == total else "partial",
         "last_updated": datetime.now(timezone.utc).isoformat(),
+        "slides": slides or [],
     }
     (folder / "metadata.json").write_text(json.dumps(data, indent=2))

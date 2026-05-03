@@ -11,8 +11,11 @@ def make_config(username="natgeo", output_dir=None, highlight=None, login_user=N
 
 
 def make_mock_item(is_video=False):
+    from datetime import datetime, timezone
     item = MagicMock()
     item.is_video = is_video
+    item.date_utc = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    item.mediaid = 123456
     return item
 
 
@@ -180,9 +183,13 @@ def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_pro
 
     run(make_config(highlight="Travel", output_dir=str(tmp_path)))
 
-    mock_organizer.write_metadata.assert_called_once_with(
-        tmp_path, "Travel", 2, 2, 1, 1
-    )
+    args = mock_organizer.write_metadata.call_args
+    assert args[0][:6] == (tmp_path, "Travel", 2, 2, 1, 1)
+    slides = args[0][6]
+    assert len(slides) == 2
+    types = {s["type"] for s in slides}
+    assert types == {"video", "image"}
+    assert all("date_utc" in s and "mediaid" in s for s in slides)
 
 
 @patch("insta_loader.downloader.prog")

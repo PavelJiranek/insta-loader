@@ -127,6 +127,25 @@ def test_write_metadata_fields(tmp_path):
     assert "last_updated" in data
 
 
+def test_write_metadata_slides_empty_by_default(tmp_path):
+    write_metadata(tmp_path, "Travel", total=2, downloaded=2, videos=1, images=1)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert data["slides"] == []
+
+
+def test_write_metadata_slides_written(tmp_path):
+    slides = [
+        {"index": 1, "filename": "Travel_01", "type": "video", "date_utc": "2025-01-01T00:00:00+00:00", "mediaid": "111"},
+        {"index": 2, "filename": "Travel_02", "type": "image", "date_utc": "2025-01-02T00:00:00+00:00", "mediaid": "222"},
+    ]
+    write_metadata(tmp_path, "Travel", total=2, downloaded=2, videos=1, images=1, slides=slides)
+    data = json.loads((tmp_path / "metadata.json").read_text())
+    assert len(data["slides"]) == 2
+    assert data["slides"][0]["filename"] == "Travel_01"
+    assert data["slides"][1]["type"] == "image"
+    assert data["slides"][1]["mediaid"] == "222"
+
+
 def test_write_metadata_overwrites_on_rerun(tmp_path):
     write_metadata(tmp_path, "Travel", total=5, downloaded=3, videos=1, images=2)
     write_metadata(tmp_path, "Travel", total=5, downloaded=5, videos=2, images=3)

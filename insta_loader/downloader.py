@@ -77,10 +77,18 @@ def run(config: Config) -> None:
             downloaded = 0
             videos = 0
             images = 0
+            slides = []
 
             for idx, item in enumerate(items, start=1):
                 filename = organizer.slide_filename(highlight.title, idx)
                 is_video = item.is_video
+                slide = {
+                    "index": idx,
+                    "filename": filename,
+                    "type": "video" if is_video else "image",
+                    "date_utc": item.date_utc.isoformat(),
+                    "mediaid": str(item.mediaid),
+                }
 
                 if organizer.slide_exists(folder, highlight.title, idx):
                     prog.log_skip(filename)
@@ -90,6 +98,7 @@ def run(config: Config) -> None:
                         videos += 1
                     else:
                         images += 1
+                    slides.append(slide)
                     continue
 
                 L.dirname_pattern = str(folder)
@@ -98,7 +107,7 @@ def run(config: Config) -> None:
                 try:
                     L.download_storyitem(item, highlight.unique_id)
                 except Exception as e:
-                    organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images)
+                    organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images, slides)
                     print(f"\n✗  Error on slide {idx} of '{highlight.title}': {e}")
                     print("   Resume by running the same command again.")
                     sys.exit(1)
@@ -108,6 +117,7 @@ def run(config: Config) -> None:
                     videos += 1
                 else:
                     images += 1
+                slides.append(slide)
                 prog.advance(progress, task_id, filename)
 
-            organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images)
+            organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images, slides)
