@@ -17,6 +17,17 @@ def run(config: Config) -> None:
         post_metadata_txt_pattern="",
     )
 
+    if config.login_user:
+        try:
+            L.load_session_from_file(config.login_user)
+        except FileNotFoundError:
+            print(f"No saved session for @{config.login_user} — logging in...")
+            try:
+                L.interactive_login(config.login_user)
+            except instaloader.exceptions.BadCredentialsException:
+                print("✗  Wrong password.")
+                sys.exit(1)
+
     try:
         profile = instaloader.Profile.from_username(L.context, config.username)
     except instaloader.exceptions.ProfileNotExistsException:

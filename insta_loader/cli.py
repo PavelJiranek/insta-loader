@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 from dataclasses import dataclass
 from typing import Optional
@@ -9,6 +10,7 @@ class Config:
     username: str
     output_dir: Optional[str]
     highlight: Optional[str]
+    login_user: Optional[str]
 
 
 def parse_args(argv=None) -> Config:
@@ -25,6 +27,12 @@ def parse_args(argv=None) -> Config:
         "--highlight",
         help="Download only this highlight reel (case-insensitive exact match)",
     )
+    parser.add_argument(
+        "--login-user",
+        dest="login_user",
+        default=os.environ.get("INSTA_LOGIN_USER"),
+        help="Instagram username to authenticate as (saves session for future runs). Defaults to INSTA_LOGIN_USER env var.",
+    )
     args = parser.parse_args(argv)
 
     if args.highlight is None:
@@ -38,4 +46,5 @@ def parse_args(argv=None) -> Config:
         username=args.username,
         output_dir=args.output_dir,
         highlight=args.highlight,
+        login_user=args.login_user,
     )

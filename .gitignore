@@ -9,6 +9,12 @@ __pycache__/
 venv/
 *.egg-info/
 
+# Environment variables
+.env
+
+# instaloader session/cookie files
+session-*
+
 # OS / tools
 .DS_Store
 .superpowers/

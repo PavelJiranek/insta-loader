@@ -6,8 +6,8 @@ from insta_loader.cli import Config
 from insta_loader.downloader import run
 
 
-def make_config(username="natgeo", output_dir=None, highlight=None):
-    return Config(username=username, output_dir=output_dir, highlight=highlight)
+def make_config(username="natgeo", output_dir=None, highlight=None, login_user=None):
+    return Config(username=username, output_dir=output_dir, highlight=highlight, login_user=login_user)
 
 
 def make_mock_item(is_video=False):
@@ -204,3 +204,60 @@ def test_write_metadata_called_on_error(mock_organizer, mock_il, mock_prog, tmp_
         run(make_config(highlight="Travel", output_dir=str(tmp_path)))
 
     mock_organizer.write_metadata.assert_called_once()
+
+
+@patch("insta_loader.downloader.instaloader")
+def test_loads_saved_session_when_login_user_given(mock_il):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = True
+    mock_il.Profile.from_username.return_value = mock_profile
+
+    with pytest.raises(SystemExit):
+        run(make_config(login_user="myuser"))
+
+    mock_loader.load_session_from_file.assert_called_once_with("myuser")
+
+
+@patch("insta_loader.downloader.instaloader")
+def test_interactive_login_when_no_session_file(mock_il):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_loader.load_session_from_file.side_effect = FileNotFoundError
+    mock_profile = MagicMock()
+    mock_profile.is_private = True
+    mock_il.Profile.from_username.return_value = mock_profile
+
+    with pytest.raises(SystemExit):
+        run(make_config(login_user="myuser"))
+
+    mock_loader.interactive_login.assert_called_once_with("myuser")
+
+
+@patch("insta_loader.downloader.instaloader")
+def test_bad_credentials_exits_1(mock_il):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_loader.load_session_from_file.side_effect = FileNotFoundError
+    mock_il.exceptions.BadCredentialsException = _il.exceptions.BadCredentialsException
+    mock_loader.interactive_login.side_effect = _il.exceptions.BadCredentialsException
+
+    with pytest.raises(SystemExit) as exc:
+        run(make_config(login_user="myuser"))
+    assert exc.value.code == 1
+
+
+@patch("insta_loader.downloader.instaloader")
+def test_no_login_attempt_when_login_user_not_set(mock_il):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = True
+    mock_il.Profile.from_username.return_value = mock_profile
+
+    with pytest.raises(SystemExit):
+        run(make_config())
+
+    mock_loader.load_session_from_file.assert_not_called()
+    mock_loader.interactive_login.assert_not_called()

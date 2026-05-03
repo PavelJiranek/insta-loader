@@ -57,3 +57,13 @@ def test_parse_args_no_highlight_uppercase_y_continues(monkeypatch):
 def test_parse_args_returns_config_instance():
     config = parse_args(["natgeo", "--highlight", "Travel"])
     assert isinstance(config, Config)
+
+
+def test_parse_args_login_user_flag():
+    config = parse_args(["natgeo", "--highlight", "Travel", "--login-user", "myaccount"])
+    assert config.login_user == "myaccount"
+
+
+def test_parse_args_login_user_defaults_to_none():
+    config = parse_args(["natgeo", "--highlight", "Travel"])
+    assert config.login_user is None

@@ -1,5 +1,8 @@
 import sys
 
+from dotenv import load_dotenv
+load_dotenv()
+
 from insta_loader.cli import parse_args
 from insta_loader.downloader import run
 
