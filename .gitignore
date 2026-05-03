@@ -1,5 +1,5 @@
-# Default output path (username/highlights/)
-*/highlights/
+# Downloaded media
+output/
 
 # Python
 __pycache__/

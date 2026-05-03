@@ -28,10 +28,10 @@ python highlights.py <username> --highlight "Travel" --output-dir ~/Desktop/inst
 
 ## Output
 
-Files are saved to `<username>/highlights/` by default (gitignored):
+Files are saved to `output/<username>/` by default (gitignored):
 
 ```
-natgeo/highlights/
+output/natgeo/
   Travel/
     Travel_01_20230415_143200.mp4
     Travel_02_20230415_143500.jpg

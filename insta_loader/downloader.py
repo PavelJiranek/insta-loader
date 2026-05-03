@@ -65,12 +65,12 @@ def run(config: Config) -> None:
     else:
         highlights = all_highlights
 
-    base_dir = config.output_dir or f"{config.username}/highlights"
+    base_dir = config.output_dir or f"output/{config.username}"
     print(f"✓  @{config.username} is public — {len(highlights)} highlight(s) to download\n")
 
     with prog.create_progress() as progress:
         for highlight in highlights:
-            items = list(highlight.get_items())
+            items = list(reversed(list(highlight.get_items())))
             task_id = prog.add_highlight_task(progress, highlight.title, len(items))
             folder = organizer.highlight_dir(base_dir, highlight.title)
 
