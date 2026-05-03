@@ -312,12 +312,39 @@ def test_update_skips_complete_highlight(mock_il, mock_prog, mock_get_all, mock_
 
     folder = tmp_path / "Travel"
     folder.mkdir()
-    (folder / "metadata.json").write_text(json.dumps({"status": "complete"}))
+    (folder / "metadata.json").write_text(json.dumps({"status": "complete", "total_items": 2}))
 
     run(make_config(highlight="Travel", output_dir=str(tmp_path), update=True))
 
     mock_loader.download_storyitem.assert_not_called()
     mock_prog.log_video_skip.assert_called_once()
+
+
+@patch("insta_loader.downloader.organizer")
+@patch("insta_loader.downloader._get_all_highlights")
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+def test_update_reprocesses_complete_highlight_with_new_slides(mock_il, mock_prog, mock_get_all, mock_organizer, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = False
+    mock_il.Profile.from_username.return_value = mock_profile
+    # API now returns 3 slides, but only 2 were stored
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=3)]
+    mock_organizer.sanitize_name.return_value = "Travel"
+    mock_organizer.highlight_dir.return_value = tmp_path
+    mock_organizer.slide_filename.return_value = "Travel_01"
+    mock_organizer.slide_exists.return_value = False
+
+    folder = tmp_path / "Travel"
+    folder.mkdir()
+    (folder / "metadata.json").write_text(json.dumps({"status": "complete", "total_items": 2}))
+
+    run(make_config(highlight="Travel", output_dir=str(tmp_path), update=True))
+
+    # Should proceed to download the 3 slides
+    assert mock_loader.download_storyitem.call_count == 3
 
 
 @patch("insta_loader.downloader.organizer")

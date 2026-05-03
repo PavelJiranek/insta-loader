@@ -122,16 +122,25 @@ def run(config: Config) -> None:
 
     with prog.create_progress() as progress:
         for highlight in highlights:
+            items = None
+
             if config.update:
                 folder_path = Path(base_dir) / organizer.sanitize_name(highlight.title)
                 meta_path = folder_path / "metadata.json"
                 if meta_path.exists():
                     existing = json.loads(meta_path.read_text())
                     if existing.get("status") == "complete":
-                        prog.log_video_skip(f"{highlight.title} — complete, skipping")
-                        continue
+                        items = list(reversed(list(highlight.get_items())))
+                        if len(items) == existing.get("total_items", 0):
+                            prog.log_video_skip(f"{highlight.title} — complete, skipping")
+                            continue
+                        prog.log_video_skip(
+                            f"{highlight.title} — {len(items)} slides on Instagram vs "
+                            f"{existing.get('total_items', '?')} stored, re-downloading"
+                        )
 
-            items = list(reversed(list(highlight.get_items())))
+            if items is None:
+                items = list(reversed(list(highlight.get_items())))
             task_id = prog.add_highlight_task(progress, highlight.title, len(items))
             folder = organizer.highlight_dir(base_dir, highlight.title)
 
