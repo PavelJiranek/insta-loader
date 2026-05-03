@@ -28,12 +28,14 @@ def test_get_credentials_loads_existing_token(tmp_path):
     fake_creds = MagicMock()
     fake_creds.valid = True
 
+    secrets_path = tmp_path / "client_secrets.json"
+    secrets_path.touch()
     with patch("insta_loader.youtube_uploader.TOKEN_PATH", token_path), \
          patch("insta_loader.youtube_uploader.Credentials") as mock_creds_cls:
         token_path.write_text('{"token": "fake"}')
         mock_creds_cls.from_authorized_user_file.return_value = fake_creds
 
-        result = _get_credentials(tmp_path / "client_secrets.json")
+        result = _get_credentials(secrets_path)
 
         mock_creds_cls.from_authorized_user_file.assert_called_once()
         assert result is fake_creds
@@ -44,6 +46,8 @@ def test_get_credentials_triggers_browser_flow_when_no_token(tmp_path):
     fake_creds = MagicMock()
     fake_creds.to_json.return_value = '{"token": "new"}'
 
+    secrets_path = tmp_path / "client_secrets.json"
+    secrets_path.touch()
     with patch("insta_loader.youtube_uploader.TOKEN_PATH", token_path), \
          patch("insta_loader.youtube_uploader.Credentials") as mock_creds_cls, \
          patch("insta_loader.youtube_uploader.InstalledAppFlow") as mock_flow_cls:
@@ -52,7 +56,7 @@ def test_get_credentials_triggers_browser_flow_when_no_token(tmp_path):
         mock_flow.run_local_server.return_value = fake_creds
         mock_flow_cls.from_client_secrets_file.return_value = mock_flow
 
-        result = _get_credentials(tmp_path / "client_secrets.json")
+        result = _get_credentials(secrets_path)
 
         mock_flow.run_local_server.assert_called_once_with(port=0)
         assert token_path.exists()
