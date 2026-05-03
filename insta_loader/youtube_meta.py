@@ -2,7 +2,6 @@ import json
 import re
 import sys
 from pathlib import Path
-from typing import Optional
 
 import pycountry
 
@@ -280,7 +279,7 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str) -> dict:
         title_parts.append(f"· {date_str}")
     title = " ".join(title_parts)
 
-    desc_main = place_name
+    desc_main = f"{place_name} highlights" if place_name.strip() else "highlights"
     if part_num is not None:
         desc_main += f" · Part {part_num}"
     if date_str:
