@@ -1,4 +1,3 @@
-import pytest
 from insta_loader.cli import YoutubeConfig
 
 
