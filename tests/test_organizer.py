@@ -20,6 +20,26 @@ def test_sanitize_name_both_space_and_slash():
     assert sanitize_name("Travel/Europe 2024") == "Travel-Europe_2024"
 
 
+def test_sanitize_name_strips_apostrophe():
+    assert sanitize_name("Czechia '26") == "Czechia_26"
+
+
+def test_sanitize_name_strips_ampersand_and_collapses():
+    assert sanitize_name("Gdansk & Hel") == "Gdansk_Hel"
+
+
+def test_sanitize_name_keeps_emoji():
+    assert sanitize_name("🇨🇿 Czechia '25") == "🇨🇿_Czechia_25"
+
+
+def test_sanitize_name_keeps_accented_chars():
+    assert sanitize_name("Iguazú") == "Iguazú"
+
+
+def test_sanitize_name_strips_leading_trailing_underscores():
+    assert sanitize_name("'Travel'") == "Travel"
+
+
 def test_slide_filename_zero_pads_single_digit():
     assert slide_filename("Travel", 1) == "Travel_01"
 
