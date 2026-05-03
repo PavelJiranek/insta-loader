@@ -47,3 +47,23 @@ def test_no_subcommand_exits_0(capsys):
         with pytest.raises(SystemExit) as exc:
             insta.main()
     assert exc.value.code == 0
+
+
+def test_youtube_meta_subparser_exists():
+    import subprocess, sys
+    result = subprocess.run(
+        [sys.executable, "insta.py", "youtube-meta", "--help"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "insta-username" in result.stdout or "username" in result.stdout
+
+
+def test_youtube_upload_subparser_exists():
+    import subprocess, sys
+    result = subprocess.run(
+        [sys.executable, "insta.py", "youtube-upload", "--help"],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0
+    assert "insta-username" in result.stdout or "username" in result.stdout

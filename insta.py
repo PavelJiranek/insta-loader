@@ -5,10 +5,11 @@ import sys
 from dotenv import load_dotenv
 load_dotenv()
 
-from insta_loader.cli import Config, VideoConfig
+from insta_loader.cli import Config, VideoConfig, YoutubeConfig
 from insta_loader.downloader import run as run_highlights
 from insta_loader.summarizer import run as run_summary
 from insta_loader.video_creator import run as run_videos
+from insta_loader.youtube_meta import run as run_youtube_meta
 
 
 def main() -> None:
@@ -40,6 +41,18 @@ def main() -> None:
     summ = subparsers.add_parser("summary", help="Regenerate summary.json from downloaded slides on disk.")
     summ.add_argument("username", help="Instagram username (without @)")
     summ.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<username>/)")
+
+    yt_meta = subparsers.add_parser("youtube-meta", help="Generate YouTube metadata JSON for downloaded highlights.")
+    yt_meta.add_argument("insta_username", metavar="insta-username", help="Instagram username (folder name under output/)")
+    yt_meta.add_argument("--highlight", help="Partial name match — process only this highlight")
+    yt_meta.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
+
+    yt_upload = subparsers.add_parser("youtube-upload", help="Upload assembled MP4s as private YouTube videos.")
+    yt_upload.add_argument("insta_username", metavar="insta-username", help="Instagram username (folder name under output/)")
+    yt_upload.add_argument("--highlight", help="Partial name match — upload only this highlight")
+    yt_upload.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
+    yt_upload.add_argument("--client-secrets", dest="client_secrets", help="Path to client_secrets.json (or set YOUTUBE_CLIENT_SECRETS)")
+    yt_upload.add_argument("--playlist", default="Story Highlights", help="YouTube playlist name (default: Story Highlights)")
 
     args = parser.parse_args()
 
@@ -73,6 +86,23 @@ def main() -> None:
 
     elif args.command == "summary":
         run_summary(args.username, args.output_dir)
+
+    elif args.command == "youtube-meta":
+        run_youtube_meta(YoutubeConfig(
+            username=args.insta_username,
+            highlight=args.highlight,
+            output_dir=args.output_dir,
+        ))
+
+    elif args.command == "youtube-upload":
+        from insta_loader.youtube_uploader import run as run_youtube_upload
+        run_youtube_upload(YoutubeConfig(
+            username=args.insta_username,
+            highlight=args.highlight,
+            output_dir=args.output_dir,
+            client_secrets=args.client_secrets,
+            playlist=args.playlist,
+        ))
 
 
 if __name__ == "__main__":
