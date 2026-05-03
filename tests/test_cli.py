@@ -48,6 +48,12 @@ def test_parse_args_no_highlight_empty_input_exits_0(monkeypatch):
     assert exc.value.code == 0
 
 
+def test_parse_args_no_highlight_uppercase_y_continues(monkeypatch):
+    monkeypatch.setattr("builtins.input", lambda _: "Y")
+    config = parse_args(["natgeo"])
+    assert config.username == "natgeo"
+
+
 def test_parse_args_returns_config_instance():
     config = parse_args(["natgeo", "--highlight", "Travel"])
     assert isinstance(config, Config)
