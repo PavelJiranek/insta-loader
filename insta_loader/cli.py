@@ -13,6 +13,13 @@ class Config:
     login_user: Optional[str]
 
 
+@dataclass
+class VideoConfig:
+    username: str
+    highlight: Optional[str] = None
+    output_dir: Optional[str] = None
+
+
 def parse_args(argv=None) -> Config:
     parser = argparse.ArgumentParser(
         description="Download Instagram story highlights to local folders."
