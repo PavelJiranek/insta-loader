@@ -222,3 +222,68 @@ def test_write_meta_creates_youtube_dir(tmp_path):
     _write_meta(subdir, "Test", meta)
     assert subdir.exists()
     assert (subdir / "Test.json").exists()
+
+
+from unittest.mock import patch
+from insta_loader.youtube_meta import run as run_meta
+
+
+def _make_highlight(base, name, slides=None):
+    hdir = base / name
+    hdir.mkdir(parents=True)
+    if slides is None:
+        slides = [{"date_utc": "2026-04-01T00:00:00Z", "status": "downloaded"}]
+    (hdir / "metadata.json").write_text(json.dumps({
+        "highlight_title": name,
+        "slides": slides,
+    }))
+    return hdir
+
+
+def test_run_skips_highlight_with_no_video(tmp_path, capsys):
+    _make_highlight(tmp_path, "Travel")
+    run_meta(YoutubeConfig(username="test", output_dir=str(tmp_path)))
+    assert not (tmp_path / "youtube").exists()
+    assert "no video" in capsys.readouterr().out.lower()
+
+
+def test_run_creates_json_for_highlight_with_video(tmp_path):
+    _make_highlight(tmp_path, "Travel")
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+
+    run_meta(YoutubeConfig(username="test", output_dir=str(tmp_path)))
+
+    assert (tmp_path / "youtube" / "Travel.json").exists()
+
+
+def test_run_skips_already_uploaded(tmp_path, capsys):
+    _make_highlight(tmp_path, "Travel")
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    existing = {"highlight_folder": "Travel", "uploaded": True, "youtube_id": "abc"}
+    (youtube_dir / "Travel.json").write_text(json.dumps(existing))
+
+    run_meta(YoutubeConfig(username="test", output_dir=str(tmp_path)))
+
+    out = capsys.readouterr().out
+    assert "skipped" in out.lower()
+    assert json.loads((youtube_dir / "Travel.json").read_text())["youtube_id"] == "abc"
+
+
+def test_run_filters_by_highlight_name(tmp_path):
+    _make_highlight(tmp_path, "Travel")
+    _make_highlight(tmp_path, "Summer")
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    (videos_dir / "Summer.mp4").touch()
+
+    run_meta(YoutubeConfig(username="test", output_dir=str(tmp_path), highlight="travel"))
+
+    assert (tmp_path / "youtube" / "Travel.json").exists()
+    assert not (tmp_path / "youtube" / "Summer.json").exists()

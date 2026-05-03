@@ -315,3 +315,45 @@ def _write_meta(youtube_dir: Path, folder_name: str, meta: dict) -> bool:
             return False
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return True
+
+
+def run(config: YoutubeConfig) -> None:
+    from rich import print as rprint
+
+    base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
+    if not base.exists():
+        print(f"✗  No downloaded highlights found at {base}")
+        sys.exit(1)
+
+    highlight_dirs = sorted(
+        d for d in base.iterdir() if d.is_dir() and (d / "metadata.json").exists()
+    )
+    if not highlight_dirs:
+        print(f"✗  No downloaded highlights found at {base}")
+        sys.exit(1)
+
+    if config.highlight:
+        highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
+
+    videos_dir = base / "videos"
+    youtube_dir = base / "youtube"
+
+    for hdir in highlight_dirs:
+        folder_name = hdir.name
+        video_path = videos_dir / f"{folder_name}.mp4"
+
+        if not video_path.exists():
+            print(f"✗  {folder_name} — no video at {video_path}, skipping")
+            continue
+
+        meta_obj = json.loads((hdir / "metadata.json").read_text(encoding="utf-8"))
+        slides = meta_obj.get("slides", [])
+        meta = _build_youtube_meta(folder_name, slides, config.username)
+        written = _write_meta(youtube_dir, folder_name, meta)
+
+        title = meta["youtube"]["title"]
+        if written:
+            meta_path = youtube_dir / f"{folder_name}.json"
+            rprint(f"[green]✓[/green]  {title} → {meta_path}")
+        else:
+            rprint(f"[dim]–  {title} skipped (already uploaded, not regenerating)[/dim]")
