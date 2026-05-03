@@ -99,6 +99,69 @@ def _concat_clips(clip_paths: list, output_path: Path) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
 
 
+def run(config: VideoConfig) -> None:
+    if shutil.which("ffmpeg") is None:
+        print("✗  ffmpeg not found. Install it: https://ffmpeg.org/download.html")
+        sys.exit(1)
+
+    base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
+    if not base.exists():
+        print(f"✗  No downloaded highlights found at {base}")
+        sys.exit(1)
+
+    highlight_dirs = sorted(
+        d for d in base.iterdir() if d.is_dir() and (d / "metadata.json").exists()
+    )
+    if not highlight_dirs:
+        print(f"✗  No downloaded highlights found at {base}")
+        sys.exit(1)
+
+    if config.highlight:
+        highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
+
+    videos_dir = base / "videos"
+    videos_dir.mkdir(exist_ok=True)
+    print(f"✓  {len(highlight_dirs)} highlight(s) to process\n")
+
+    with prog.create_progress() as progress:
+        for hdir in highlight_dirs:
+            meta = json.loads((hdir / "metadata.json").read_text())
+            title = meta.get("highlight_title", hdir.name)
+            slides = _collect_slides(hdir)
+
+            if not slides:
+                prog.log_skip(f"{title} — no valid slides, skipping")
+                continue
+
+            output_path = videos_dir / f"{hdir.name}.mp4"
+            resolved = _resolve_conflict(output_path)
+            if resolved is None:
+                prog.log_skip(f"{title}.mp4 skipped")
+                continue
+            output_path = resolved
+
+            task_id = prog.add_video_task(progress, title, len(slides))
+            tmp_dir = Path(tempfile.mkdtemp())
+            start = time.time()
+            try:
+                clips = []
+                for slide in slides:
+                    clip = _normalize_slide(
+                        slide["path"], slide["index"], tmp_dir, slide["type"] == "video"
+                    )
+                    clips.append(clip)
+                    prog.advance(progress, task_id, slide["path"].name)
+                _concat_clips(clips, output_path)
+                elapsed = time.time() - start
+                m, s = divmod(int(elapsed), 60)
+                print(f"✓  {output_path.name} — {len(slides)} slides, {m}m {s:02d}s")
+            except subprocess.CalledProcessError as e:
+                stderr = e.stderr.decode(errors="replace") if e.stderr else ""
+                print(f"✗  {title} — ffmpeg error\n{stderr}")
+            finally:
+                shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
 def _filter_highlights(query: str, dirs: list) -> list:
     exact = [d for d in dirs if d.name.lower() == query.lower()]
     if exact:

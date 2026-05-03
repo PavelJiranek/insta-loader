@@ -267,3 +267,71 @@ def test_filter_highlights_invalid_selection_exits_1(tmp_path, monkeypatch):
     with pytest.raises(SystemExit) as exc:
         _filter_highlights("czech", dirs)
     assert exc.value.code == 1
+
+
+from unittest.mock import MagicMock
+from insta_loader.video_creator import run
+
+
+@patch("insta_loader.video_creator.shutil.which", return_value=None)
+def test_run_exits_when_ffmpeg_missing(mock_which):
+    with pytest.raises(SystemExit) as exc:
+        run(VideoConfig(username="test"))
+    assert exc.value.code == 1
+
+
+@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
+def test_run_exits_when_base_dir_missing(mock_which, tmp_path):
+    with pytest.raises(SystemExit) as exc:
+        run(VideoConfig(username="test", output_dir=str(tmp_path / "nonexistent")))
+    assert exc.value.code == 1
+
+
+@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
+def test_run_exits_when_no_highlight_dirs_with_metadata(mock_which, tmp_path):
+    (tmp_path / "some_dir").mkdir()  # has no metadata.json
+    with pytest.raises(SystemExit) as exc:
+        run(VideoConfig(username="test", output_dir=str(tmp_path)))
+    assert exc.value.code == 1
+
+
+@patch("insta_loader.video_creator._concat_clips")
+@patch("insta_loader.video_creator._normalize_slide")
+@patch("insta_loader.video_creator._collect_slides", return_value=[])
+@patch("insta_loader.video_creator.prog")
+@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
+def test_run_skips_highlight_with_no_valid_slides(
+    mock_which, mock_prog, mock_collect, mock_norm, mock_concat, tmp_path
+):
+    mock_prog.create_progress.return_value = MagicMock()
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
+
+    run(VideoConfig(username="test", output_dir=str(tmp_path)))
+
+    mock_norm.assert_not_called()
+    mock_concat.assert_not_called()
+
+
+@patch("insta_loader.video_creator._concat_clips")
+@patch("insta_loader.video_creator._normalize_slide")
+@patch("insta_loader.video_creator._resolve_conflict")
+@patch("insta_loader.video_creator._collect_slides")
+@patch("insta_loader.video_creator.prog")
+@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
+def test_run_skips_highlight_when_resolve_returns_none(
+    mock_which, mock_prog, mock_collect, mock_conflict, mock_norm, mock_concat, tmp_path
+):
+    mock_prog.create_progress.return_value = MagicMock()
+    mock_collect.return_value = [{"index": 1, "type": "image", "path": tmp_path / "f.jpg"}]
+    mock_conflict.return_value = None
+
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
+
+    run(VideoConfig(username="test", output_dir=str(tmp_path)))
+
+    mock_norm.assert_not_called()
+    mock_concat.assert_not_called()

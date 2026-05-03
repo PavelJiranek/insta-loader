@@ -8,7 +8,7 @@ from rich.progress import (
 )
 from rich import print as rprint
 
-__all__ = ["create_progress", "add_highlight_task", "advance", "log_skip"]
+__all__ = ["create_progress", "add_highlight_task", "add_video_task", "advance", "log_skip"]
 
 
 def create_progress() -> Progress:
@@ -23,6 +23,10 @@ def create_progress() -> Progress:
 
 def add_highlight_task(progress: Progress, title: str, total: int) -> TaskID:
     return progress.add_task(f"Highlight: {title}", total=total, current_file="")
+
+
+def add_video_task(progress: Progress, title: str, total: int) -> TaskID:
+    return progress.add_task(f"Video: {title}", total=total, current_file="")
 
 
 def advance(progress: Progress, task_id: TaskID, filename: str = "") -> None:
