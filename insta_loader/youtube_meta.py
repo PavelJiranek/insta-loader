@@ -252,8 +252,8 @@ def _date_range(slides: list) -> str:
     if not dates:
         return ""
 
-    first_y, first_m = dates[0]
-    last_y, last_m = dates[-1]
+    first_y, first_m = min(dates)
+    last_y, last_m = max(dates)
 
     if first_y == last_y and first_m == last_m:
         return f"{_MONTHS[first_m - 1]} {first_y}"
