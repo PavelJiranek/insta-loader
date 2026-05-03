@@ -46,6 +46,33 @@ def _resolve_highlight(query: str, all_highlights: list) -> list:
     return [partial[int(raw) - 1]]
 
 
+def _get_all_highlights(L: instaloader.Instaloader, profile) -> list:
+    highlights = []
+    cursor = None
+    while True:
+        params: dict = {}
+        if cursor:
+            params["cursor"] = cursor
+        data = L.context.get_iphone_json(
+            path=f"api/v1/highlights/{profile.userid}/highlights_tray/",
+            params=params,
+        )
+        for item in data.get("tray", []):
+            raw_id = item.get("id", "")
+            node_id = raw_id.replace("highlight:", "") if isinstance(raw_id, str) else str(raw_id)
+            node = {
+                "id": node_id,
+                "title": item.get("title", ""),
+                "cover_media": item.get("cover_media", {}),
+                "cover_media_cropped_thumbnail": item.get("cover_media_cropped_thumbnail", {}),
+            }
+            highlights.append(instaloader.Highlight(L.context, node, profile))
+        cursor = data.get("cursor") or None
+        if not cursor:
+            break
+    return highlights
+
+
 def run(config: Config) -> None:
     L = instaloader.Instaloader(
         download_videos=True,
@@ -82,7 +109,7 @@ def run(config: Config) -> None:
         )
         sys.exit(1)
 
-    all_highlights = list(L.get_highlights(profile))
+    all_highlights = _get_all_highlights(L, profile)
 
     if config.highlight:
         highlights = _resolve_highlight(config.highlight, all_highlights)

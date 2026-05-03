@@ -3,7 +3,7 @@ import instaloader as _il
 from unittest.mock import MagicMock, patch
 
 from insta_loader.cli import Config
-from insta_loader.downloader import run, _resolve_highlight
+from insta_loader.downloader import run, _resolve_highlight, _get_all_highlights
 
 
 def make_highlight(title):
@@ -35,7 +35,8 @@ def make_mock_highlight(title, num_items=2):
 
 @patch("insta_loader.downloader.instaloader")
 def test_private_account_exits_1(mock_il):
-    mock_il.Instaloader.return_value = MagicMock()
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = True
     mock_il.Profile.from_username.return_value = mock_profile
@@ -47,7 +48,8 @@ def test_private_account_exits_1(mock_il):
 
 @patch("insta_loader.downloader.instaloader")
 def test_account_not_found_exits_1(mock_il):
-    mock_il.Instaloader.return_value = MagicMock()
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
     # Map the mock exception to the real one so the except clause catches it
     mock_il.exceptions.ProfileNotExistsException = _il.exceptions.ProfileNotExistsException
     mock_il.Profile.from_username.side_effect = _il.exceptions.ProfileNotExistsException("natgeo")
@@ -57,30 +59,32 @@ def test_account_not_found_exits_1(mock_il):
     assert exc.value.code == 1
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.instaloader")
-def test_highlight_not_found_exits_1(mock_il):
+def test_highlight_not_found_exits_1(mock_il, mock_get_all):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Summer")]
+    mock_get_all.return_value = [make_mock_highlight("Summer")]
 
     with pytest.raises(SystemExit) as exc:
         run(make_config(highlight="Travel"))
     assert exc.value.code == 1
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_skips_already_downloaded_slides(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_skips_already_downloaded_slides(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=1)]
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=1)]
 
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
@@ -91,16 +95,17 @@ def test_skips_already_downloaded_slides(mock_organizer, mock_il, mock_prog, tmp
     mock_loader.download_storyitem.assert_not_called()
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_downloads_missing_slides(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_downloads_missing_slides(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=1)]
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=1)]
 
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
@@ -111,33 +116,35 @@ def test_downloads_missing_slides(mock_organizer, mock_il, mock_prog, tmp_path):
     mock_loader.download_storyitem.assert_called_once()
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_highlight_match_is_case_insensitive(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_highlight_match_is_case_insensitive(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
     # Stored as "Travel", queried as "travel"
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=0)]
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=0)]
     mock_organizer.highlight_dir.return_value = tmp_path
 
     # Should NOT exit — "travel" matches "Travel"
     run(make_config(highlight="travel", output_dir=str(tmp_path)))
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_download_error_skips_slide_and_continues(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_download_error_skips_slide_and_continues(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=2)]
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=2)]
 
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
@@ -154,16 +161,17 @@ def test_download_error_skips_slide_and_continues(mock_organizer, mock_il, mock_
     assert "downloaded" in statuses
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_downloads_all_highlights_when_none_specified(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_downloads_all_highlights_when_none_specified(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [
+    mock_get_all.return_value = [
         make_mock_highlight("Travel", num_items=0),
         make_mock_highlight("Summer", num_items=0),
     ]
@@ -173,10 +181,11 @@ def test_downloads_all_highlights_when_none_specified(mock_organizer, mock_il, m
     run(make_config(output_dir=str(tmp_path)))
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
@@ -187,7 +196,7 @@ def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_pro
     highlight.title = "Travel"
     highlight.unique_id = "hl_123"
     highlight.get_items.return_value = items
-    mock_loader.get_highlights.return_value = [highlight]
+    mock_get_all.return_value = [highlight]
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
     mock_organizer.slide_exists.return_value = False
@@ -203,16 +212,17 @@ def test_write_metadata_called_after_highlight(mock_organizer, mock_il, mock_pro
     assert all("date_utc" in s and "mediaid" in s for s in slides)
 
 
+@patch("insta_loader.downloader._get_all_highlights")
 @patch("insta_loader.downloader.prog")
 @patch("insta_loader.downloader.instaloader")
 @patch("insta_loader.downloader.organizer")
-def test_write_metadata_records_failed_slide(mock_organizer, mock_il, mock_prog, tmp_path):
+def test_write_metadata_records_failed_slide(mock_organizer, mock_il, mock_prog, mock_get_all, tmp_path):
     mock_loader = MagicMock()
     mock_il.Instaloader.return_value = mock_loader
     mock_profile = MagicMock()
     mock_profile.is_private = False
     mock_il.Profile.from_username.return_value = mock_profile
-    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=1)]
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=1)]
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
     mock_organizer.slide_exists.return_value = False
@@ -333,3 +343,93 @@ def test_resolve_non_numeric_selection_exits_1(monkeypatch):
     with pytest.raises(SystemExit) as exc:
         _resolve_highlight("czech", highlights)
     assert exc.value.code == 1
+
+
+# --- _get_all_highlights ---
+
+def make_tray_item(highlight_id, title):
+    return {
+        "id": f"highlight:{highlight_id}",
+        "title": title,
+        "cover_media": {},
+        "cover_media_cropped_thumbnail": {},
+    }
+
+
+def test_get_all_highlights_single_page():
+    mock_L = MagicMock()
+    mock_profile = MagicMock()
+    mock_profile.userid = 12345
+    mock_L.context.get_iphone_json.return_value = {
+        "tray": [make_tray_item("100", "Travel"), make_tray_item("101", "Summer")],
+        "cursor": None,
+    }
+
+    with patch("insta_loader.downloader.instaloader.Highlight") as mock_hl:
+        mock_hl.side_effect = lambda ctx, node, profile: node
+        results = _get_all_highlights(mock_L, mock_profile)
+
+    assert len(results) == 2
+    mock_L.context.get_iphone_json.assert_called_once_with(
+        path="api/v1/highlights/12345/highlights_tray/",
+        params={},
+    )
+
+
+def test_get_all_highlights_paginates_with_cursor():
+    mock_L = MagicMock()
+    mock_profile = MagicMock()
+    mock_profile.userid = 99
+
+    pages = [
+        {"tray": [make_tray_item("1", "A")] * 100, "cursor": "cursor_abc"},
+        {"tray": [make_tray_item("2", "B")] * 34, "cursor": None},
+    ]
+    mock_L.context.get_iphone_json.side_effect = pages
+
+    with patch("insta_loader.downloader.instaloader.Highlight") as mock_hl:
+        mock_hl.side_effect = lambda ctx, node, profile: node
+        results = _get_all_highlights(mock_L, mock_profile)
+
+    assert len(results) == 134
+    assert mock_L.context.get_iphone_json.call_count == 2
+    second_call_params = mock_L.context.get_iphone_json.call_args_list[1][1]["params"]
+    assert second_call_params == {"cursor": "cursor_abc"}
+
+
+def test_get_all_highlights_strips_highlight_prefix():
+    mock_L = MagicMock()
+    mock_profile = MagicMock()
+    mock_profile.userid = 1
+
+    captured_nodes = []
+
+    def capture_highlight(ctx, node, profile):
+        captured_nodes.append(node)
+        return node
+
+    mock_L.context.get_iphone_json.return_value = {
+        "tray": [{"id": "highlight:999", "title": "Test", "cover_media": {}, "cover_media_cropped_thumbnail": {}}],
+        "cursor": "",
+    }
+
+    with patch("insta_loader.downloader.instaloader.Highlight", side_effect=capture_highlight):
+        _get_all_highlights(mock_L, mock_profile)
+
+    assert captured_nodes[0]["id"] == "999"
+
+
+def test_get_all_highlights_empty_cursor_stops_pagination():
+    mock_L = MagicMock()
+    mock_profile = MagicMock()
+    mock_profile.userid = 1
+    mock_L.context.get_iphone_json.return_value = {
+        "tray": [],
+        "cursor": "",
+    }
+
+    with patch("insta_loader.downloader.instaloader.Highlight"):
+        results = _get_all_highlights(mock_L, mock_profile)
+
+    assert results == []
+    assert mock_L.context.get_iphone_json.call_count == 1
