@@ -3,7 +3,13 @@ import instaloader as _il
 from unittest.mock import MagicMock, patch
 
 from insta_loader.cli import Config
-from insta_loader.downloader import run
+from insta_loader.downloader import run, _resolve_highlight
+
+
+def make_highlight(title):
+    h = MagicMock()
+    h.title = title
+    return h
 
 
 def make_config(username="natgeo", output_dir=None, highlight=None, login_user=None):
@@ -271,3 +277,54 @@ def test_no_login_attempt_when_login_user_not_set(mock_il):
 
     mock_loader.load_session_from_file.assert_not_called()
     mock_loader.interactive_login.assert_not_called()
+
+
+# --- _resolve_highlight ---
+
+def test_resolve_exact_match():
+    highlights = [make_highlight("Travel"), make_highlight("Summer")]
+    result = _resolve_highlight("Travel", highlights)
+    assert result[0].title == "Travel"
+
+
+def test_resolve_exact_match_case_insensitive():
+    highlights = [make_highlight("Travel"), make_highlight("Summer")]
+    result = _resolve_highlight("travel", highlights)
+    assert result[0].title == "Travel"
+
+
+def test_resolve_single_partial_match(capsys):
+    highlights = [make_highlight("Czech Republic"), make_highlight("Summer")]
+    result = _resolve_highlight("czech", highlights)
+    assert result[0].title == "Czech Republic"
+    assert "Matched" in capsys.readouterr().out
+
+
+def test_resolve_no_match_exits_1():
+    highlights = [make_highlight("Travel"), make_highlight("Summer")]
+    with pytest.raises(SystemExit) as exc:
+        _resolve_highlight("xyz", highlights)
+    assert exc.value.code == 1
+
+
+def test_resolve_multiple_partial_matches_prompts(monkeypatch):
+    highlights = [make_highlight("Czech Republic"), make_highlight("Czech Brno"), make_highlight("Summer")]
+    monkeypatch.setattr("builtins.input", lambda _: "2")
+    result = _resolve_highlight("czech", highlights)
+    assert result[0].title == "Czech Brno"
+
+
+def test_resolve_invalid_selection_exits_1(monkeypatch):
+    highlights = [make_highlight("Czech Republic"), make_highlight("Czech Brno")]
+    monkeypatch.setattr("builtins.input", lambda _: "99")
+    with pytest.raises(SystemExit) as exc:
+        _resolve_highlight("czech", highlights)
+    assert exc.value.code == 1
+
+
+def test_resolve_non_numeric_selection_exits_1(monkeypatch):
+    highlights = [make_highlight("Czech Republic"), make_highlight("Czech Brno")]
+    monkeypatch.setattr("builtins.input", lambda _: "abc")
+    with pytest.raises(SystemExit) as exc:
+        _resolve_highlight("czech", highlights)
+    assert exc.value.code == 1

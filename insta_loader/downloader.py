@@ -15,6 +15,32 @@ def _session_path(username: str) -> str:
     return str(path / f"session-{username}")
 
 
+def _resolve_highlight(query: str, all_highlights: list) -> list:
+    exact = [h for h in all_highlights if h.title.lower() == query.lower()]
+    if exact:
+        return exact
+
+    partial = [h for h in all_highlights if query.lower() in h.title.lower()]
+    if not partial:
+        available = ", ".join(h.title for h in all_highlights)
+        print(f"✗  No highlight matching '{query}' found.")
+        print(f"   Available: {available}")
+        sys.exit(1)
+
+    if len(partial) == 1:
+        print(f"→  Matched '{partial[0].title}'")
+        return partial
+
+    print(f"Multiple highlights match '{query}':")
+    for i, h in enumerate(partial, start=1):
+        print(f"  {i}. {h.title}")
+    raw = input(f"Pick [1-{len(partial)}]: ").strip()
+    if not raw.isdigit() or not (1 <= int(raw) <= len(partial)):
+        print("✗  Invalid selection.")
+        sys.exit(1)
+    return [partial[int(raw) - 1]]
+
+
 def run(config: Config) -> None:
     L = instaloader.Instaloader(
         download_videos=True,
@@ -54,14 +80,7 @@ def run(config: Config) -> None:
     all_highlights = list(L.get_highlights(profile))
 
     if config.highlight:
-        highlights = [
-            h for h in all_highlights if h.title.lower() == config.highlight.lower()
-        ]
-        if not highlights:
-            available = ", ".join(h.title for h in all_highlights)
-            print(f"✗  Highlight '{config.highlight}' not found.")
-            print(f"   Available: {available}")
-            sys.exit(1)
+        highlights = _resolve_highlight(config.highlight, all_highlights)
     else:
         highlights = all_highlights
 
