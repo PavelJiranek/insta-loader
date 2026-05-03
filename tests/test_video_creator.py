@@ -312,7 +312,7 @@ def test_run_skips_highlight_with_no_valid_slides(
 
     mock_norm.assert_not_called()
     mock_concat.assert_not_called()
-    mock_prog.log_skip.assert_called_once()
+    mock_prog.log_video_skip.assert_called_once()
 
 
 @patch("insta_loader.video_creator._concat_clips")
@@ -336,4 +336,4 @@ def test_run_skips_highlight_when_resolve_returns_none(
 
     mock_norm.assert_not_called()
     mock_concat.assert_not_called()
-    mock_prog.log_skip.assert_called_once()
+    mock_prog.log_video_skip.assert_called_once()

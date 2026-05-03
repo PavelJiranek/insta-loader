@@ -8,7 +8,7 @@ from rich.progress import (
 )
 from rich import print as rprint
 
-__all__ = ["create_progress", "add_highlight_task", "add_video_task", "advance", "log_skip"]
+__all__ = ["create_progress", "add_highlight_task", "add_video_task", "advance", "log_skip", "log_video_skip"]
 
 
 def create_progress() -> Progress:
@@ -35,3 +35,7 @@ def advance(progress: Progress, task_id: TaskID, filename: str = "") -> None:
 
 def log_skip(filename: str) -> None:
     rprint(f"[dim]Skipping {filename} — already downloaded[/dim]")
+
+
+def log_video_skip(message: str) -> None:
+    rprint(f"[dim]–  {message}[/dim]")

@@ -12,11 +12,12 @@ from insta_loader import progress as prog
 from insta_loader.cli import VideoConfig
 
 
-def _collect_slides(highlight_dir: Path) -> list:
-    meta_file = highlight_dir / "metadata.json"
-    if not meta_file.exists():
-        return []
-    meta = json.loads(meta_file.read_text())
+def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
+    if meta is None:
+        meta_file = highlight_dir / "metadata.json"
+        if not meta_file.exists():
+            return []
+        meta = json.loads(meta_file.read_text())
     result = []
     for slide in meta.get("slides", []):
         if slide.get("status") == "failed":
@@ -53,7 +54,10 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
         return output_path
     elif answer == "n":
         return candidate
+    elif answer == "s":
+        return None
     else:
+        print(f"✗  Invalid choice '{answer}' — skipping {output_path.name}")
         return None
 
 
@@ -99,6 +103,32 @@ def _concat_clips(clip_paths: list, output_path: Path) -> None:
     subprocess.run(cmd, check=True, capture_output=True)
 
 
+def _filter_highlights(query: str, dirs: list) -> list:
+    exact = [d for d in dirs if d.name.lower() == query.lower()]
+    if exact:
+        return exact
+
+    partial = [d for d in dirs if query.lower() in d.name.lower()]
+    if not partial:
+        available = ", ".join(d.name for d in dirs)
+        print(f"✗  No highlight matching '{query}' found.")
+        print(f"   Available: {available}")
+        sys.exit(1)
+
+    if len(partial) == 1:
+        print(f"→  Matched '{partial[0].name}'")
+        return partial
+
+    print(f"Multiple highlights match '{query}':")
+    for i, d in enumerate(partial, start=1):
+        print(f"  {i}. {d.name}")
+    raw = input(f"Pick [1-{len(partial)}]: ").strip()
+    if not raw.isdigit() or not (1 <= int(raw) <= len(partial)):
+        print("✗  Invalid selection.")
+        sys.exit(1)
+    return [partial[int(raw) - 1]]
+
+
 def run(config: VideoConfig) -> None:
     if shutil.which("ffmpeg") is None:
         print("✗  ffmpeg not found. Install it: https://ffmpeg.org/download.html")
@@ -127,16 +157,16 @@ def run(config: VideoConfig) -> None:
         for hdir in highlight_dirs:
             meta = json.loads((hdir / "metadata.json").read_text())
             title = meta.get("highlight_title", hdir.name)
-            slides = _collect_slides(hdir)
+            slides = _collect_slides(hdir, meta)
 
             if not slides:
-                prog.log_skip(f"{title} — no valid slides, skipping")
+                prog.log_video_skip(f"{title} — no valid slides, skipping")
                 continue
 
             output_path = videos_dir / f"{hdir.name}.mp4"
             resolved = _resolve_conflict(output_path)
             if resolved is None:
-                prog.log_skip(f"{title}.mp4 skipped")
+                prog.log_video_skip(f"{title}.mp4 skipped")
                 continue
             output_path = resolved
 
@@ -160,29 +190,3 @@ def run(config: VideoConfig) -> None:
                 print(f"✗  {title} — ffmpeg error\n{stderr}")
             finally:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
-
-
-def _filter_highlights(query: str, dirs: list) -> list:
-    exact = [d for d in dirs if d.name.lower() == query.lower()]
-    if exact:
-        return exact
-
-    partial = [d for d in dirs if query.lower() in d.name.lower()]
-    if not partial:
-        available = ", ".join(d.name for d in dirs)
-        print(f"✗  No highlight matching '{query}' found.")
-        print(f"   Available: {available}")
-        sys.exit(1)
-
-    if len(partial) == 1:
-        print(f"→  Matched '{partial[0].name}'")
-        return partial
-
-    print(f"Multiple highlights match '{query}':")
-    for i, d in enumerate(partial, start=1):
-        print(f"  {i}. {d.name}")
-    raw = input(f"Pick [1-{len(partial)}]: ").strip()
-    if not raw.isdigit() or not (1 <= int(raw) <= len(partial)):
-        print("✗  Invalid selection.")
-        sys.exit(1)
-    return [partial[int(raw) - 1]]
