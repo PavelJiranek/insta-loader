@@ -91,7 +91,7 @@ def _upload_video(youtube, meta: dict, video_path: Path) -> str:
         },
         "status": {"privacyStatus": meta["youtube"]["privacy_status"]},
     }
-    media = MediaFileUpload(str(video_path), chunksize=-1, resumable=True)
+    media = MediaFileUpload(str(video_path), chunksize=10 * 1024 * 1024, resumable=True)
     request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
     response = None
     while response is None:
