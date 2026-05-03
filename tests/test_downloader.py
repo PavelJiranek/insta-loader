@@ -1,7 +1,6 @@
 import pytest
 import instaloader as _il
 from unittest.mock import MagicMock, patch
-from pathlib import Path
 
 from insta_loader.cli import Config
 from insta_loader.downloader import run
@@ -112,3 +111,43 @@ def test_highlight_match_is_case_insensitive(mock_organizer, mock_il, mock_prog,
 
     # Should NOT exit — "travel" matches "Travel"
     run(make_config(highlight="travel", output_dir=str(tmp_path)))
+
+
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+@patch("insta_loader.downloader.organizer")
+def test_download_error_exits_1(mock_organizer, mock_il, mock_prog, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = False
+    mock_il.Profile.from_username.return_value = mock_profile
+    mock_loader.get_highlights.return_value = [make_mock_highlight("Travel", num_items=1)]
+
+    mock_organizer.highlight_dir.return_value = tmp_path
+    mock_organizer.slide_filename.return_value = "Travel_01"
+    mock_organizer.slide_exists.return_value = False
+    mock_loader.download_storyitem.side_effect = Exception("network error")
+
+    with pytest.raises(SystemExit) as exc:
+        run(make_config(highlight="Travel", output_dir=str(tmp_path)))
+    assert exc.value.code == 1
+
+
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+@patch("insta_loader.downloader.organizer")
+def test_downloads_all_highlights_when_none_specified(mock_organizer, mock_il, mock_prog, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_profile = MagicMock()
+    mock_profile.is_private = False
+    mock_il.Profile.from_username.return_value = mock_profile
+    mock_loader.get_highlights.return_value = [
+        make_mock_highlight("Travel", num_items=0),
+        make_mock_highlight("Summer", num_items=0),
+    ]
+    mock_organizer.highlight_dir.return_value = tmp_path
+
+    # highlight=None — should process both without exiting
+    run(make_config(output_dir=str(tmp_path)))
