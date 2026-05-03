@@ -213,3 +213,57 @@ def test_concat_clips_list_file_contains_all_clips(mock_run, tmp_path):
     content = list_file.read_text()
     assert str(clips[0].resolve()) in content
     assert str(clips[1].resolve()) in content
+
+
+from insta_loader.video_creator import _filter_highlights
+
+
+def make_dirs(names: list, base: Path) -> list:
+    dirs = []
+    for name in names:
+        d = base / name
+        d.mkdir()
+        dirs.append(d)
+    return dirs
+
+
+def test_filter_highlights_exact_match(tmp_path):
+    dirs = make_dirs(["Travel", "Summer"], tmp_path)
+    result = _filter_highlights("Travel", dirs)
+    assert len(result) == 1
+    assert result[0].name == "Travel"
+
+
+def test_filter_highlights_case_insensitive(tmp_path):
+    dirs = make_dirs(["Travel", "Summer"], tmp_path)
+    result = _filter_highlights("travel", dirs)
+    assert result[0].name == "Travel"
+
+
+def test_filter_highlights_single_partial_match(tmp_path, capsys):
+    dirs = make_dirs(["Czech_Republic", "Summer"], tmp_path)
+    result = _filter_highlights("czech", dirs)
+    assert result[0].name == "Czech_Republic"
+    assert "Matched" in capsys.readouterr().out
+
+
+def test_filter_highlights_no_match_exits_1(tmp_path):
+    dirs = make_dirs(["Travel", "Summer"], tmp_path)
+    with pytest.raises(SystemExit) as exc:
+        _filter_highlights("xyz", dirs)
+    assert exc.value.code == 1
+
+
+def test_filter_highlights_multiple_partial_prompts(tmp_path, monkeypatch):
+    dirs = make_dirs(["Czech_Republic", "Czech_Brno", "Summer"], tmp_path)
+    monkeypatch.setattr("builtins.input", lambda _: "2")
+    result = _filter_highlights("czech", dirs)
+    assert result[0].name == "Czech_Brno"
+
+
+def test_filter_highlights_invalid_selection_exits_1(tmp_path, monkeypatch):
+    dirs = make_dirs(["Czech_Republic", "Czech_Brno"], tmp_path)
+    monkeypatch.setattr("builtins.input", lambda _: "99")
+    with pytest.raises(SystemExit) as exc:
+        _filter_highlights("czech", dirs)
+    assert exc.value.code == 1
