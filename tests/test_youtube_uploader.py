@@ -121,7 +121,7 @@ def test_upload_video_returns_video_id():
             "description": "desc",
             "tags": ["a", "b"],
             "category_id": "19",
-            "privacy_status": "private",
+            "privacy_status": "unlisted",
         }
     }
 
@@ -171,7 +171,7 @@ def _make_meta_file(youtube_dir, folder_name, uploaded=False,
             "description": "desc",
             "tags": ["tag"],
             "category_id": "19",
-            "privacy_status": "private",
+            "privacy_status": "unlisted",
         },
         "uploaded": uploaded,
         "youtube_id": youtube_id,
@@ -402,7 +402,7 @@ def test_run_update_resets_outdated_then_uploads(tmp_path):
             "description": "d",
             "tags": [],
             "category_id": "19",
-            "privacy_status": "private",
+            "privacy_status": "unlisted",
         },
         "uploaded": True,
         "outdated": True,

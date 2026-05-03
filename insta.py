@@ -46,6 +46,7 @@ def main() -> None:
     yt_meta.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
     yt_meta.add_argument("--highlight", help="Partial name match — process only this highlight")
     yt_meta.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
+    yt_meta.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status (default: unlisted)")
 
     yt_upload = subparsers.add_parser("youtube-upload", help="Upload assembled MP4s as private YouTube videos.")
     yt_upload.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
@@ -54,6 +55,7 @@ def main() -> None:
     yt_upload.add_argument("--client-secrets", dest="client_secrets", default=os.environ.get("YOUTUBE_CLIENT_SECRETS"), help="Path to client_secrets.json (or set YOUTUBE_CLIENT_SECRETS)")
     yt_upload.add_argument("--playlist", default="Story Highlights", help="YouTube playlist name (default: Story Highlights)")
     yt_upload.add_argument("--update", action="store_true", help="Delete outdated uploaded videos (after confirmation) and re-upload the re-encoded versions")
+    yt_upload.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status for new uploads (default: unlisted)")
 
     args = parser.parse_args()
 
@@ -93,6 +95,7 @@ def main() -> None:
             username=args.username,
             highlight=args.highlight,
             output_dir=args.output_dir,
+            privacy=args.privacy,
         ))
 
     elif args.command == "youtube-upload":
@@ -104,6 +107,7 @@ def main() -> None:
             client_secrets=args.client_secrets,
             playlist=args.playlist,
             update=args.update,
+            privacy=args.privacy,
         ))
 
 

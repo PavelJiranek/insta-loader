@@ -262,7 +262,7 @@ def _date_range(slides: list) -> str:
         return f"{_MONTHS[first_m - 1]} {first_y}–{_MONTHS[last_m - 1]} {last_y}"
 
 
-def _build_youtube_meta(folder_name: str, slides: list, username: str) -> dict:
+def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: str = "unlisted") -> dict:
     country_codes = _decode_flags(folder_name)
     flag_str = _extract_flag_str(folder_name)
     place_name, part_num = _parse_title(folder_name)
@@ -295,7 +295,7 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str) -> dict:
             "description": description,
             "tags": tags,
             "category_id": "19",
-            "privacy_status": "private",
+            "privacy_status": privacy,
         },
         "uploaded": False,
         "youtube_id": None,
@@ -347,7 +347,7 @@ def run(config: YoutubeConfig) -> None:
 
         meta_obj = json.loads((hdir / "metadata.json").read_text(encoding="utf-8"))
         slides = meta_obj.get("slides", [])
-        meta = _build_youtube_meta(folder_name, slides, config.username)
+        meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy)
         written = _write_meta(youtube_dir, folder_name, meta)
 
         title = meta["youtube"]["title"]

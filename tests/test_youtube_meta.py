@@ -176,7 +176,7 @@ def test_build_youtube_meta_structure():
     assert meta["highlight_folder"] == "Travel"
     assert meta["video_path"] == "output/user/videos/Travel.mp4"
     assert meta["youtube"]["category_id"] == "19"
-    assert meta["youtube"]["privacy_status"] == "private"
+    assert meta["youtube"]["privacy_status"] == "unlisted"
     assert meta["uploaded"] is False
     assert meta["youtube_id"] is None
     assert meta["youtube_url"] is None

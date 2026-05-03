@@ -31,6 +31,7 @@ class YoutubeConfig:
     client_secrets: Optional[str] = None
     playlist: str = "Story Highlights"
     update: bool = False
+    privacy: str = "unlisted"
 
 
 def parse_args(argv=None) -> Config:

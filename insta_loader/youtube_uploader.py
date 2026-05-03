@@ -34,8 +34,8 @@ def _print_setup_instructions(secrets_path: Path) -> None:
     print("   3. APIs & Services → Credentials → Create Credentials → OAuth client ID")
     print("      → 'Which API?' select YouTube Data API v3 → choose 'User data' (not Public data)")
     print("      → App name: anything → your email as support/developer contact")
-    print("      → Scopes: skip (Next) → OAuth client type: Desktop app → Create
-      → OAuth consent screen → Test users → Add users → add your Google account email")
+    print("      → Scopes: skip (Next) → OAuth client type: Desktop app → Create")
+    print("      → OAuth consent screen → Test users → Add users → add your Google account email")
     print("   4. Download the JSON and save as:")
     print(f"      {secrets_path}")
 
@@ -67,7 +67,7 @@ def _get_credentials(client_secrets_path: Path) -> Credentials:
     return creds
 
 
-def _get_or_create_playlist(youtube, name: str) -> str:
+def _get_or_create_playlist(youtube, name: str, privacy: str = "unlisted") -> str:
     request = youtube.playlists().list(part="snippet", mine=True, maxResults=50)
     while request is not None:
         response = request.execute()
@@ -80,7 +80,7 @@ def _get_or_create_playlist(youtube, name: str) -> str:
         part="snippet,status",
         body={
             "snippet": {"title": name, "description": ""},
-            "status": {"privacyStatus": "private"},
+            "status": {"privacyStatus": privacy},
         },
     ).execute()
     return response["id"]
@@ -232,14 +232,14 @@ def run(config: YoutubeConfig) -> None:
             continue
 
         if playlist_id is None:
-            playlist_id = _get_or_create_playlist(youtube, config.playlist)
+            playlist_id = _get_or_create_playlist(youtube, config.playlist, config.privacy)
 
         rprint(f"[cyan]↑  {prefix} {title} — uploading…[/cyan]")
         try:
             video_id = _upload_video(youtube, meta, video_path)
             _add_to_playlist(youtube, playlist_id, video_id)
             _mark_uploaded(meta_path, video_id)
-            rprint(f"[green]✓[/green]  {prefix} {title} → youtube.com/watch?v={video_id} (private)")
+            rprint(f"[green]✓[/green]  {prefix} {title} → youtube.com/watch?v={video_id} ({config.privacy})")
         except Exception as e:
             err = str(e)
             current = json.loads(meta_path.read_text(encoding="utf-8"))
