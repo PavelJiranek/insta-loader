@@ -154,25 +154,31 @@ def run(config: VideoConfig) -> None:
 
     videos_dir = base / "videos"
     videos_dir.mkdir(exist_ok=True)
-    print(f"✓  {len(highlight_dirs)} highlight(s) to process\n")
+
+    # Resolve all conflicts before starting the progress bar so that
+    # input() prompts are not corrupted by Rich's live terminal rendering.
+    queue = []
+    for hdir in highlight_dirs:
+        meta = json.loads((hdir / "metadata.json").read_text())
+        title = meta.get("highlight_title", hdir.name)
+        slides = _collect_slides(hdir, meta)
+        if not slides:
+            prog.log_video_skip(f"{title} — no valid slides, skipping")
+            continue
+        output_path = videos_dir / f"{hdir.name}.mp4"
+        resolved = _resolve_conflict(output_path)
+        if resolved is None:
+            prog.log_video_skip(f"{title}.mp4 skipped")
+            continue
+        queue.append((title, slides, resolved))
+
+    if not queue:
+        return
+
+    print(f"\n✓  {len(queue)} highlight(s) to encode\n")
 
     with prog.create_progress() as progress:
-        for hdir in highlight_dirs:
-            meta = json.loads((hdir / "metadata.json").read_text())
-            title = meta.get("highlight_title", hdir.name)
-            slides = _collect_slides(hdir, meta)
-
-            if not slides:
-                prog.log_video_skip(f"{title} — no valid slides, skipping")
-                continue
-
-            output_path = videos_dir / f"{hdir.name}.mp4"
-            resolved = _resolve_conflict(output_path)
-            if resolved is None:
-                prog.log_video_skip(f"{title}.mp4 skipped")
-                continue
-            output_path = resolved
-
+        for title, slides, output_path in queue:
             task_id = prog.add_video_task(progress, title, len(slides))
             tmp_dir = Path(tempfile.mkdtemp())
             start = time.time()
