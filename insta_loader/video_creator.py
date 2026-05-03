@@ -77,6 +77,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
         cmd = [
             _FFMPEG, "-i", str(slide_path),
             "-vf", _VF,
+            "-r", "30",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-ar", "44100",
             "-y", str(out),
@@ -98,12 +99,21 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
 
 
 def _concat_clips(clip_paths: list, output_path: Path) -> None:
-    list_file = clip_paths[0].parent / "concat_list.txt"
-    list_file.write_text("\n".join(f"file '{p.resolve()}'" for p in clip_paths))
+    n = len(clip_paths)
+    inputs = []
+    for p in clip_paths:
+        inputs.extend(["-i", str(p)])
+    filter_str = (
+        "".join(f"[{i}:v:0][{i}:a:0]" for i in range(n))
+        + f"concat=n={n}:v=1:a=1[outv][outa]"
+    )
     cmd = [
-        _FFMPEG, "-f", "concat", "-safe", "0",
-        "-i", str(list_file),
-        "-c", "copy",
+        _FFMPEG,
+        *inputs,
+        "-filter_complex", filter_str,
+        "-map", "[outv]", "-map", "[outa]",
+        "-c:v", "libx264", "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-ar", "44100",
         "-y", str(output_path),
     ]
     subprocess.run(cmd, check=True, capture_output=True)

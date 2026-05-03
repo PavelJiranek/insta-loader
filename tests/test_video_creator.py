@@ -197,27 +197,21 @@ def test_concat_clips_runs_ffmpeg_concat(mock_run, tmp_path):
 
     cmd = mock_run.call_args[0][0]
     assert cmd[0] == _FFMPEG
-    assert "-f" in cmd
-    assert "concat" in cmd
+    assert "-filter_complex" in cmd
+    assert "concat=n=2" in " ".join(cmd)
     assert str(output) in cmd
 
 
 @patch("insta_loader.video_creator.subprocess.run")
-def test_concat_clips_list_file_contains_all_clips(mock_run, tmp_path):
+def test_concat_clips_all_inputs_in_command(mock_run, tmp_path):
     clips = [tmp_path / "clip_001.mp4", tmp_path / "clip_002.mp4"]
-    clips[0].touch()
-    clips[1].touch()
     output = tmp_path / "out.mp4"
 
     _concat_clips(clips, output)
 
-    # find the list file arg (-i <list_file>)
     cmd = mock_run.call_args[0][0]
-    i_index = cmd.index("-i")
-    list_file = Path(cmd[i_index + 1])
-    content = list_file.read_text()
-    assert str(clips[0].resolve()) in content
-    assert str(clips[1].resolve()) in content
+    assert str(clips[0]) in cmd
+    assert str(clips[1]) in cmd
 
 
 from insta_loader.video_creator import _filter_highlights
