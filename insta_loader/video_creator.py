@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import imageio_ffmpeg
+from rich import print as rprint
 
 from insta_loader import progress as prog
 from insta_loader.cli import VideoConfig
@@ -209,7 +210,7 @@ def run(config: VideoConfig) -> None:
         output_path = videos_dir / f"{hdir.name}.mp4"
         if config.update:
             if not _needs_update(hdir, output_path):
-                prog.log_video_skip(f"{title}.mp4 is up to date")
+                rprint(f"[green]✓[/green]  {title} — up to date")
                 continue
             if output_path.exists():
                 output_path.unlink()
@@ -227,6 +228,7 @@ def run(config: VideoConfig) -> None:
     print(f"\n✓  {len(queue)} highlight(s) to encode\n")
 
     with prog.create_progress() as progress:
+        overall = prog.add_overall_task(progress, len(queue))
         for title, slides, output_path, hdir in queue:
             task_id = prog.add_video_task(progress, title, len(slides))
             tmp_dir = Path(tempfile.mkdtemp())
@@ -243,6 +245,8 @@ def run(config: VideoConfig) -> None:
                 _concat_clips(clips, output_path)
                 elapsed = time.time() - start
                 m, s = divmod(int(elapsed), 60)
+                prog.complete_video_task(progress, task_id, title, m, s)
+                progress.advance(overall)
                 print(f"✓  {output_path.name} — {len(slides)} slides, {m}m {s:02d}s")
                 if config.update:
                     _mark_youtube_outdated(base, hdir.name)

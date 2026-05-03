@@ -413,7 +413,6 @@ def test_run_update_skips_up_to_date_video(
 
     mock_norm.assert_not_called()
     mock_concat.assert_not_called()
-    mock_prog.log_video_skip.assert_called_once()
 
 
 @patch("insta_loader.video_creator._concat_clips")

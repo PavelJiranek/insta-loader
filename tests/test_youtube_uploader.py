@@ -12,6 +12,8 @@ from insta_loader.youtube_uploader import (
     _upload_video,
     _add_to_playlist,
     _mark_uploaded,
+    _check_missing_metadata,
+    _delete_outdated,
     run as run_upload,
 )
 from insta_loader.cli import YoutubeConfig
@@ -192,7 +194,7 @@ def test_run_skips_already_uploaded(tmp_path, capsys):
         ))
 
     out = capsys.readouterr().out
-    assert "skipped" in out.lower()
+    assert "already uploaded" in out.lower()
 
 
 def test_run_skips_missing_video(tmp_path, capsys):
@@ -312,3 +314,120 @@ def test_run_exits_when_no_metadata(tmp_path):
             client_secrets=str(secrets),
         ))
     assert exc.value.code == 1
+
+
+def test_check_missing_metadata_returns_videos_without_json(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    (videos_dir / "Summer.mp4").touch()
+    (youtube_dir / "Travel.json").write_text("{}")
+
+    missing = _check_missing_metadata(tmp_path, youtube_dir)
+    assert missing == ["Summer"]
+
+
+def test_check_missing_metadata_empty_when_all_present(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    (youtube_dir / "Travel.json").write_text("{}")
+
+    assert _check_missing_metadata(tmp_path, youtube_dir) == []
+
+
+def test_check_missing_metadata_no_videos_dir(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    assert _check_missing_metadata(tmp_path, youtube_dir) == []
+
+
+def test_delete_outdated_skips_when_none(tmp_path, capsys):
+    youtube = MagicMock()
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    meta_path = youtube_dir / "Travel.json"
+    meta_path.write_text(json.dumps({
+        "highlight_folder": "Travel",
+        "uploaded": True,
+        "outdated": False,
+        "youtube_id": "vid1",
+        "youtube": {"title": "Travel"},
+    }))
+
+    _delete_outdated(youtube, [meta_path])
+    youtube.videos().delete.assert_not_called()
+    assert "no outdated" in capsys.readouterr().out.lower()
+
+
+def test_delete_outdated_resets_flags_on_confirmation(tmp_path, monkeypatch):
+    youtube = MagicMock()
+    youtube.videos().delete().execute.return_value = {}
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    meta_path = youtube_dir / "Travel.json"
+    meta_path.write_text(json.dumps({
+        "highlight_folder": "Travel",
+        "uploaded": True,
+        "outdated": True,
+        "youtube_id": "vid1",
+        "youtube_url": "https://www.youtube.com/watch?v=vid1",
+        "youtube": {"title": "Travel"},
+    }))
+
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    _delete_outdated(youtube, [meta_path])
+
+    updated = json.loads(meta_path.read_text())
+    assert updated["uploaded"] is False
+    assert updated["youtube_id"] is None
+    assert updated["outdated"] is False
+
+
+def test_run_update_resets_outdated_then_uploads(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    meta_path = youtube_dir / "Travel.json"
+    meta_path.write_text(json.dumps({
+        "highlight_folder": "Travel",
+        "video_path": str(videos_dir / "Travel.mp4"),
+        "youtube": {
+            "title": "Travel",
+            "description": "d",
+            "tags": [],
+            "category_id": "19",
+            "privacy_status": "private",
+        },
+        "uploaded": True,
+        "outdated": True,
+        "youtube_id": "old_id",
+        "youtube_url": "https://www.youtube.com/watch?v=old_id",
+    }))
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build") as mock_build, \
+         patch("builtins.input", return_value="y"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist", return_value="PL1"), \
+         patch("insta_loader.youtube_uploader._upload_video", return_value="new_id"), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"):
+        mock_yt = MagicMock()
+        mock_yt.videos().delete().execute.return_value = {}
+        mock_build.return_value = mock_yt
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+            update=True,
+        ))
+
+    updated = json.loads(meta_path.read_text())
+    assert updated["uploaded"] is True
+    assert updated["youtube_id"] == "new_id"

@@ -53,6 +53,7 @@ def main() -> None:
     yt_upload.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
     yt_upload.add_argument("--client-secrets", dest="client_secrets", default=os.environ.get("YOUTUBE_CLIENT_SECRETS"), help="Path to client_secrets.json (or set YOUTUBE_CLIENT_SECRETS)")
     yt_upload.add_argument("--playlist", default="Story Highlights", help="YouTube playlist name (default: Story Highlights)")
+    yt_upload.add_argument("--update", action="store_true", help="Delete outdated uploaded videos (after confirmation) and re-upload the re-encoded versions")
 
     args = parser.parse_args()
 
@@ -102,6 +103,7 @@ def main() -> None:
             output_dir=args.output_dir,
             client_secrets=args.client_secrets,
             playlist=args.playlist,
+            update=args.update,
         ))
 
 

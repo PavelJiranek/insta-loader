@@ -119,19 +119,87 @@ def _mark_uploaded(meta_path: Path, youtube_id: str) -> None:
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
+def _check_missing_metadata(base: Path, youtube_dir: Path) -> list:
+    """Return folder names that have a video but no YouTube metadata JSON."""
+    videos_dir = base / "videos"
+    if not videos_dir.exists():
+        return []
+    return sorted(
+        v.stem for v in videos_dir.glob("*.mp4")
+        if not (youtube_dir / f"{v.stem}.json").exists()
+    )
+
+
+def _delete_outdated(youtube, meta_files: list) -> None:
+    """Find uploaded+outdated metadata, confirm with user, delete from YouTube, reset flags."""
+    outdated = [
+        (mp, json.loads(mp.read_text(encoding="utf-8")))
+        for mp in meta_files
+        if json.loads(mp.read_text(encoding="utf-8")).get("uploaded")
+        and json.loads(mp.read_text(encoding="utf-8")).get("outdated")
+    ]
+    if not outdated:
+        rprint("[dim]–  No outdated uploads found.[/dim]")
+        return
+
+    rprint(f"[yellow]ℹ  {len(outdated)} uploaded video(s) are outdated:[/yellow]")
+    for mp, meta in outdated:
+        rprint(f"   [dim]• {meta['youtube']['title']}  {meta.get('youtube_url', '')}[/dim]")
+
+    answer = input("Delete from YouTube and re-upload? [y/N]: ").strip().lower()
+    if answer != "y":
+        return
+
+    for mp, meta in outdated:
+        title = meta["youtube"]["title"]
+        try:
+            youtube.videos().delete(id=meta["youtube_id"]).execute()
+            current = json.loads(mp.read_text(encoding="utf-8"))
+            current["uploaded"] = False
+            current["youtube_id"] = None
+            current["youtube_url"] = None
+            current["outdated"] = False
+            mp.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
+            rprint(f"[green]✓[/green]  Deleted '{title}' from YouTube")
+        except Exception as e:
+            rprint(f"[red]✗  Failed to delete '{title}': {e}[/red]")
+
+
 def run(config: YoutubeConfig) -> None:
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     youtube_dir = base / "youtube"
+
+    # Offer to auto-generate metadata for videos that have none yet
+    missing = _check_missing_metadata(base, youtube_dir)
+    if missing:
+        rprint(f"[yellow]ℹ  {len(missing)} video(s) have no YouTube metadata:[/yellow]")
+        for name in missing:
+            rprint(f"   [dim]• {name}[/dim]")
+        answer = input("Run youtube-meta now? [y/N]: ").strip().lower()
+        if answer == "y":
+            from insta_loader.youtube_meta import run as run_meta
+            run_meta(config)
 
     if not youtube_dir.exists():
         print(f"✗  No metadata found at {youtube_dir}. Run youtube-meta first.")
         sys.exit(1)
 
-    meta_files = list(youtube_dir.glob("*.json"))
-    if not meta_files:
+    all_meta_files = list(youtube_dir.glob("*.json"))
+    if not all_meta_files:
         print(f"✗  No metadata files found in {youtube_dir}.")
         sys.exit(1)
 
+    secrets_path = _resolve_secrets_path(config.client_secrets)
+    creds = _get_credentials(secrets_path)
+    youtube = build("youtube", "v3", credentials=creds)
+
+    # Handle --update: delete outdated uploads first, then reload
+    if config.update:
+        _delete_outdated(youtube, all_meta_files)
+        all_meta_files = list(youtube_dir.glob("*.json"))
+
+    # Apply highlight filter
+    meta_files = all_meta_files
     if config.highlight:
         q = config.highlight.lower()
         meta_files = [f for f in meta_files if q in f.stem.lower()]
@@ -139,36 +207,37 @@ def run(config: YoutubeConfig) -> None:
             print(f"✗  No highlight matching '{config.highlight}'")
             sys.exit(1)
 
-    secrets_path = _resolve_secrets_path(config.client_secrets)
-    creds = _get_credentials(secrets_path)
-    youtube = build("youtube", "v3", credentials=creds)
-
     playlist_id: Optional[str] = None
+    total = len(meta_files)
+    done = 0
 
     for meta_path in meta_files:
         meta = json.loads(meta_path.read_text(encoding="utf-8"))
         title = meta["youtube"]["title"]
+        done += 1
+        prefix = f"[{done}/{total}]"
 
         if meta.get("uploaded"):
-            rprint(f"[dim]–  {title} skipped (already uploaded)[/dim]")
+            rprint(f"[green]✓[/green]  {prefix} {title} — already uploaded")
             continue
 
         video_path = Path(meta["video_path"])
         if not video_path.exists():
-            rprint(f"[yellow]✗  {title} — video not found at {video_path}[/yellow]")
+            rprint(f"[yellow]✗  {prefix} {title} — video not found at {video_path}[/yellow]")
             continue
 
         if playlist_id is None:
             playlist_id = _get_or_create_playlist(youtube, config.playlist)
 
+        rprint(f"[cyan]↑  {prefix} {title} — uploading…[/cyan]")
         try:
             video_id = _upload_video(youtube, meta, video_path)
             _add_to_playlist(youtube, playlist_id, video_id)
             _mark_uploaded(meta_path, video_id)
-            rprint(f"[green]✓[/green]  {title} → youtube.com/watch?v={video_id} (private)")
+            rprint(f"[green]✓[/green]  {prefix} {title} → youtube.com/watch?v={video_id} (private)")
         except Exception as e:
             err = str(e)
             current = json.loads(meta_path.read_text(encoding="utf-8"))
             current["upload_error"] = err
             meta_path.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
-            rprint(f"[red]✗  {title} — upload failed: {err}[/red]")
+            rprint(f"[red]✗  {prefix} {title} — upload failed: {err}[/red]")

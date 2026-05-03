@@ -9,6 +9,18 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `youtube-upload --update` flag: finds uploaded videos marked `outdated: true`, shows the list, asks for confirmation, deletes them from YouTube, and re-uploads the re-encoded versions
+- `youtube-upload` now detects videos with no metadata and prompts to run `youtube-meta` automatically before uploading
+- Overall progress counter `[N/M]` prefix on each `youtube-upload` line so it's clear how many videos remain
+- Overall `[cyan]Progress` task row added to the `videos` command Rich progress bar showing N/M highlights done
+- Elapsed time baked into each video task row description when it completes (e.g. `Video: Travel (2m35s)`) — fixes the misleading `0:00:00` that Rich shows for completed tasks
+
+### Changed
+
+- `videos --update`: skipped (up-to-date) highlights now print `✓  <title> — up to date` in green instead of dim grey
+
+
+
 #### V3 — YouTube (implementation in progress)
 - Design spec and implementation plan for `youtube-meta` and `youtube-upload` commands
 - CLI wiring for `youtube-meta` and `youtube-upload` subcommands in `insta.py`; `youtube-upload` uses lazy import to avoid ImportError when `youtube_uploader.py` doesn't exist yet

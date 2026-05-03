@@ -9,8 +9,8 @@ from rich.progress import (
 from rich import print as rprint
 
 __all__ = [
-    "create_progress", "add_highlight_task", "add_video_task",
-    "advance", "update_stats", "log_skip", "log_video_skip",
+    "create_progress", "add_overall_task", "add_highlight_task", "add_video_task",
+    "advance", "complete_video_task", "update_stats", "log_skip", "log_video_skip",
 ]
 
 
@@ -25,12 +25,24 @@ def create_progress() -> Progress:
     )
 
 
+def add_overall_task(progress: Progress, total: int) -> TaskID:
+    return progress.add_task("[cyan]Overall", total=total, current_file="", stats="")
+
+
 def add_highlight_task(progress: Progress, title: str, total: int) -> TaskID:
     return progress.add_task(f"Highlight: {title}", total=total, current_file="", stats="")
 
 
 def add_video_task(progress: Progress, title: str, total: int) -> TaskID:
     return progress.add_task(f"Video: {title}", total=total, current_file="", stats="")
+
+
+def complete_video_task(progress: Progress, task_id: TaskID, title: str, elapsed_m: int, elapsed_s: int) -> None:
+    """Mark a video task complete and bake elapsed time into the description."""
+    progress.update(
+        task_id,
+        description=f"[bold green]Video: {title}[/bold green] [dim]({elapsed_m}m{elapsed_s:02d}s)[/dim]",
+    )
 
 
 def advance(progress: Progress, task_id: TaskID, filename: str = "") -> None:

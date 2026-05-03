@@ -30,6 +30,7 @@ class YoutubeConfig:
     output_dir: Optional[str] = None
     client_secrets: Optional[str] = None
     playlist: str = "Story Highlights"
+    update: bool = False
 
 
 def parse_args(argv=None) -> Config:
