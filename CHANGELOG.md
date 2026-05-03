@@ -9,14 +9,20 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-#### V3 — YouTube (design complete, implementation planned)
+#### V3 — YouTube (implementation in progress)
 - Design spec and implementation plan for `youtube-meta` and `youtube-upload` commands
-- `youtube-meta` will generate per-highlight YouTube metadata JSON (title, description, tags, category, privacy)
+- `youtube-meta` command generates per-highlight YouTube metadata JSON (title, description, tags, category, privacy)
 - `youtube-upload` will upload assembled MP4s as private YouTube videos and add them to a "Story Highlights" playlist
+- Metadata builder: `_build_youtube_meta()` with full title/description/tags generation
 - Title generation from folder names: strips sequence numbers, splits camelCase, detects part numbers, appends date range
 - Tag enrichment: country name, continent, EU membership, US state — derived from flag emojis or city name lookup
 - Americas dual-tag: both `Americas` and `North America` / `South America`
 - Flag-as-hint fallback: city-name lookup when flag emoji absent from highlight title
+- Geo data maps: `COUNTRY_TO_CONTINENT`, `CITY_TO_COUNTRY`, `CITY_TO_STATE` for tag/location enrichment
+- Date range helper: `_date_range()` extracts month-year span from slides, skips failed slides
+- Metadata write: `_write_meta()` creates JSON files, skips overwriting already-uploaded content
+- Highlight filtering: `_filter_highlights()` via partial name matching (case-insensitive)
+- Metadata orchestrator: `run()` discovers highlights, filters by name if requested, skips highlights with no MP4, builds and writes metadata JSON
 - OAuth 2.0 via `google-auth-oauthlib`; token cached at `~/.config/instaloader/youtube_token.json`
 - `--playlist` flag (default `"Story Highlights"`) — creates playlist if not found, reuses if it exists
 - `youtube_url` field stored in metadata after successful upload
