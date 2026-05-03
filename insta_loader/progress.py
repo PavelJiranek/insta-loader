@@ -8,6 +8,8 @@ from rich.progress import (
 )
 from rich import print as rprint
 
+__all__ = ["create_progress", "add_highlight_task", "advance", "log_skip"]
+
 
 def create_progress() -> Progress:
     return Progress(
