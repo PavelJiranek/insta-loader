@@ -194,3 +194,41 @@ def _parse_title(folder_name: str) -> tuple:
     s = re.sub(r"\s+", " ", s).strip(" .")
 
     return s, part_num
+
+
+def _build_tags(place_name: str, country_codes: list) -> list:
+    """Enrich a place name with country/continent/EU/state tags."""
+    if not country_codes:
+        iso = CITY_TO_COUNTRY.get(place_name.lower())
+        if iso:
+            country_codes = [iso]
+
+    tags = [place_name]
+
+    for iso in country_codes:
+        if iso == "US":
+            state = CITY_TO_STATE.get(place_name.lower())
+            if state:
+                tags.append(state)
+
+        country = pycountry.countries.get(alpha_2=iso)
+        if country:
+            tags.append(country.name)
+
+        continent = COUNTRY_TO_CONTINENT.get(iso)
+        if continent in ("North America", "South America"):
+            tags.append(continent)
+            tags.append("Americas")
+        elif continent:
+            tags.append(continent)
+
+        if iso in EU_COUNTRIES:
+            tags.append("EU")
+
+    seen: set = set()
+    result = []
+    for t in tags:
+        if t not in seen:
+            seen.add(t)
+            result.append(t)
+    return result

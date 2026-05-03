@@ -68,3 +68,47 @@ def test_parse_title_no_flags_no_sequence():
     place, part = _parse_title("LosAngeles")
     assert place == "Los Angeles"
     assert part is None
+
+
+from insta_loader.youtube_meta import _build_tags
+
+
+def test_build_tags_africa():
+    assert _build_tags("Cape Town", ["ZA"]) == ["Cape Town", "South Africa", "Africa"]
+
+
+def test_build_tags_europe_eu():
+    assert _build_tags("Zillertal", ["AT"]) == ["Zillertal", "Austria", "Europe", "EU"]
+
+
+def test_build_tags_north_america_with_state():
+    tags = _build_tags("Los Angeles", ["US"])
+    assert tags == ["Los Angeles", "California", "United States", "North America", "Americas"]
+
+
+def test_build_tags_south_america():
+    tags = _build_tags("São Paulo", ["BR"])
+    assert tags == ["São Paulo", "Brazil", "South America", "Americas"]
+
+
+def test_build_tags_no_flag_city_lookup():
+    tags = _build_tags("Cape Town", [])
+    assert "South Africa" in tags
+    assert "Africa" in tags
+
+
+def test_build_tags_no_flag_us_city_lookup():
+    tags = _build_tags("Los Angeles", [])
+    assert "California" in tags
+    assert "United States" in tags
+    assert "Americas" in tags
+
+
+def test_build_tags_no_flag_unknown_city():
+    assert _build_tags("SomeRandomPlace", []) == ["SomeRandomPlace"]
+
+
+def test_build_tags_europe_non_eu():
+    tags = _build_tags("London", ["GB"])
+    assert tags == ["London", "United Kingdom", "Europe"]
+    assert "EU" not in tags
