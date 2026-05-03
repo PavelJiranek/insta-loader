@@ -261,3 +261,56 @@ def _date_range(slides: list) -> str:
         return f"{_MONTHS[first_m - 1]}–{_MONTHS[last_m - 1]} {first_y}"
     else:
         return f"{_MONTHS[first_m - 1]} {first_y}–{_MONTHS[last_m - 1]} {last_y}"
+
+
+def _build_youtube_meta(folder_name: str, slides: list, username: str) -> dict:
+    country_codes = _decode_flags(folder_name)
+    flag_str = _extract_flag_str(folder_name)
+    place_name, part_num = _parse_title(folder_name)
+    date_str = _date_range(slides)
+    tags = _build_tags(place_name, country_codes)
+
+    title_parts = []
+    if flag_str:
+        title_parts.append(flag_str)
+    title_parts.append(place_name)
+    if part_num is not None:
+        title_parts.append(f"· Part {part_num}")
+    if date_str:
+        title_parts.append(f"· {date_str}")
+    title = " ".join(title_parts)
+
+    desc_main = place_name
+    if part_num is not None:
+        desc_main += f" · Part {part_num}"
+    if date_str:
+        desc_main += f" · {date_str}"
+    description = f"{desc_main}\n\n@{username}"
+
+    return {
+        "highlight_folder": folder_name,
+        "video_path": f"output/{username}/videos/{folder_name}.mp4",
+        "youtube": {
+            "title": title,
+            "description": description,
+            "tags": tags,
+            "category_id": "19",
+            "privacy_status": "private",
+        },
+        "uploaded": False,
+        "youtube_id": None,
+        "youtube_url": None,
+        "outdated": False,
+    }
+
+
+def _write_meta(youtube_dir: Path, folder_name: str, meta: dict) -> bool:
+    """Write JSON file. Returns False (skipped) if already uploaded, True otherwise."""
+    meta_path = youtube_dir / f"{folder_name}.json"
+    if meta_path.exists():
+        existing = json.loads(meta_path.read_text())
+        if existing.get("uploaded"):
+            return False
+    youtube_dir.mkdir(parents=True, exist_ok=True)
+    meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+    return True

@@ -150,3 +150,75 @@ def test_date_range_empty_slides():
 
 def test_date_range_all_failed():
     assert _date_range([_slide("2025-11-01T00:00:00Z", status="failed")]) == ""
+
+
+import json
+from insta_loader.youtube_meta import _build_youtube_meta, _write_meta
+
+
+def test_build_youtube_meta_title_and_description():
+    slides = [
+        _slide("2026-04-10T00:00:00Z"),
+        _slide("2026-05-20T00:00:00Z"),
+    ]
+    # 🇿🇦 = \U0001F1FF\U0001F1E6
+    folder = "\U0001F1FF\U0001F1E69.CapeTown_Pt2"
+    meta = _build_youtube_meta(folder, slides, "testuser")
+    assert meta["youtube"]["title"] == "\U0001F1FF\U0001F1E6 Cape Town · Part 2 · Apr–May 2026"
+    assert "Cape Town" in meta["youtube"]["description"]
+    assert "Part 2" in meta["youtube"]["description"]
+    assert "@testuser" in meta["youtube"]["description"]
+
+
+def test_build_youtube_meta_structure():
+    slides = [_slide("2026-04-01T00:00:00Z")]
+    meta = _build_youtube_meta("Travel", slides, "user")
+    assert meta["highlight_folder"] == "Travel"
+    assert meta["video_path"] == "output/user/videos/Travel.mp4"
+    assert meta["youtube"]["category_id"] == "19"
+    assert meta["youtube"]["privacy_status"] == "private"
+    assert meta["uploaded"] is False
+    assert meta["youtube_id"] is None
+    assert meta["youtube_url"] is None
+
+
+def test_build_youtube_meta_tags_populated():
+    slides = [_slide("2026-04-01T00:00:00Z")]
+    folder = "\U0001F1FF\U0001F1E6Travel"  # 🇿🇦Travel
+    meta = _build_youtube_meta(folder, slides, "user")
+    assert "Travel" in meta["youtube"]["tags"]
+    assert "South Africa" in meta["youtube"]["tags"]
+
+
+def test_write_meta_creates_file(tmp_path):
+    meta = {"highlight_folder": "Test", "uploaded": False, "youtube_id": None}
+    result = _write_meta(tmp_path, "Test", meta)
+    assert result is True
+    written = json.loads((tmp_path / "Test.json").read_text())
+    assert written["highlight_folder"] == "Test"
+
+
+def test_write_meta_skips_if_already_uploaded(tmp_path):
+    existing = {"highlight_folder": "Test", "uploaded": True, "youtube_id": "abc123"}
+    (tmp_path / "Test.json").write_text(json.dumps(existing))
+    result = _write_meta(tmp_path, "Test", {"highlight_folder": "Test", "uploaded": False})
+    assert result is False
+    assert json.loads((tmp_path / "Test.json").read_text())["youtube_id"] == "abc123"
+
+
+def test_write_meta_overwrites_if_not_uploaded(tmp_path):
+    old = {"highlight_folder": "Test", "uploaded": False, "youtube_id": None}
+    (tmp_path / "Test.json").write_text(json.dumps(old))
+    new_meta = {"highlight_folder": "Test", "uploaded": False,
+                "youtube": {"title": "Updated Title"}}
+    result = _write_meta(tmp_path, "Test", new_meta)
+    assert result is True
+    assert json.loads((tmp_path / "Test.json").read_text())["youtube"]["title"] == "Updated Title"
+
+
+def test_write_meta_creates_youtube_dir(tmp_path):
+    subdir = tmp_path / "youtube"
+    meta = {"highlight_folder": "Test", "uploaded": False}
+    _write_meta(subdir, "Test", meta)
+    assert subdir.exists()
+    assert (subdir / "Test.json").exists()
