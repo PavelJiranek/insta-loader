@@ -176,11 +176,7 @@ _PART_PATTERNS = [
 
 
 def _parse_title(folder_name: str) -> tuple:
-    """Return (place_name: str, part_number: int | None).
-
-    Strips sequence numbers and flag emojis, splits camelCase,
-    normalises underscores, detects part suffix.
-    """
+    """Return (place_name, part_number) — part_number is None if no part suffix found."""
     s = _strip_flags(folder_name)
     s = re.sub(r"^\d+\.?", "", s)
     s = s.strip("_. ")
