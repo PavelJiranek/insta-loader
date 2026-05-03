@@ -125,7 +125,10 @@ def run(config: Config) -> None:
             task_id = prog.add_highlight_task(progress, highlight.title, len(items))
             folder = organizer.highlight_dir(base_dir, highlight.title)
 
-            downloaded = 0
+            on_disk = 0
+            newly_downloaded = 0
+            skipped_count = 0
+            failed_count = 0
             videos = 0
             images = 0
             slides = []
@@ -145,12 +148,14 @@ def run(config: Config) -> None:
                     slide["status"] = "skipped"
                     prog.log_skip(filename)
                     prog.advance(progress, task_id)
-                    downloaded += 1
+                    on_disk += 1
+                    skipped_count += 1
                     if is_video:
                         videos += 1
                     else:
                         images += 1
                     slides.append(slide)
+                    prog.update_stats(progress, task_id, newly_downloaded, skipped_count, failed_count)
                     continue
 
                 L.dirname_pattern = str(folder)
@@ -160,22 +165,26 @@ def run(config: Config) -> None:
                     L.download_storyitem(item, highlight.unique_id)
                 except Exception as e:
                     slide["status"] = "failed"
+                    failed_count += 1
                     slides.append(slide)
                     prog.advance(progress, task_id)
+                    prog.update_stats(progress, task_id, newly_downloaded, skipped_count, failed_count)
                     print(f"\n⚠  Skipping slide {idx} of '{highlight.title}': {e}\n")
                     continue
 
                 slide["status"] = "downloaded"
-                downloaded += 1
+                on_disk += 1
+                newly_downloaded += 1
                 if is_video:
                     videos += 1
                 else:
                     images += 1
                 slides.append(slide)
                 prog.advance(progress, task_id, filename)
+                prog.update_stats(progress, task_id, newly_downloaded, skipped_count, failed_count)
                 if _SLEEP:
                     time.sleep(_SLEEP)
 
-            organizer.write_metadata(folder, highlight.title, len(items), downloaded, videos, images, slides)
+            organizer.write_metadata(folder, highlight.title, len(items), on_disk, videos, images, slides)
 
     summarizer.run(config.username, config.output_dir)
