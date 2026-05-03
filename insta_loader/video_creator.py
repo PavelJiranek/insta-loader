@@ -67,7 +67,8 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
 
 _VF = (
     "scale=1080:1920:force_original_aspect_ratio=decrease,"
-    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
+    "format=yuv420p"
 )
 
 
