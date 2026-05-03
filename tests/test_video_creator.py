@@ -1,7 +1,10 @@
 import json
+import subprocess
 from pathlib import Path
+from unittest.mock import patch
+import pytest
 from insta_loader.cli import VideoConfig
-from insta_loader.video_creator import _collect_slides, _resolve_conflict
+from insta_loader.video_creator import _collect_slides, _resolve_conflict, _normalize_slide
 
 def test_video_config_defaults():
     c = VideoConfig(username="natgeo")
@@ -123,3 +126,55 @@ def test_resolve_conflict_invalid_input_returns_none(tmp_path, monkeypatch):
     monkeypatch.setattr("builtins.input", lambda _: "x")
 
     assert _resolve_conflict(output) is None
+
+
+@patch("insta_loader.video_creator.subprocess.run")
+def test_normalize_slide_image_uses_loop_and_no_audio(mock_run, tmp_path):
+    img = tmp_path / "slide.jpg"
+    img.touch()
+
+    out = _normalize_slide(img, 1, tmp_path, is_video=False)
+
+    cmd = mock_run.call_args[0][0]
+    assert cmd[0] == "ffmpeg"
+    assert "-loop" in cmd
+    assert "15" in cmd
+    assert "-an" in cmd
+    assert "-c:a" not in cmd
+    assert out == tmp_path / "clip_001.mp4"
+
+
+@patch("insta_loader.video_creator.subprocess.run")
+def test_normalize_slide_video_preserves_audio(mock_run, tmp_path):
+    vid = tmp_path / "slide.mp4"
+    vid.touch()
+
+    out = _normalize_slide(vid, 2, tmp_path, is_video=True)
+
+    cmd = mock_run.call_args[0][0]
+    assert cmd[0] == "ffmpeg"
+    assert "-loop" not in cmd
+    assert "-c:a" in cmd and "aac" in cmd
+    assert "-an" not in cmd
+    assert out == tmp_path / "clip_002.mp4"
+
+
+@patch("insta_loader.video_creator.subprocess.run")
+def test_normalize_slide_both_use_scale_filter(mock_run, tmp_path):
+    img = tmp_path / "slide.jpg"
+    img.touch()
+    _normalize_slide(img, 1, tmp_path, is_video=False)
+
+    cmd = mock_run.call_args[0][0]
+    vf_index = cmd.index("-vf")
+    assert "1080" in cmd[vf_index + 1]
+    assert "1920" in cmd[vf_index + 1]
+
+
+@patch("insta_loader.video_creator.subprocess.run", side_effect=subprocess.CalledProcessError(1, "ffmpeg"))
+def test_normalize_slide_raises_on_ffmpeg_error(mock_run, tmp_path):
+    img = tmp_path / "slide.jpg"
+    img.touch()
+
+    with pytest.raises(subprocess.CalledProcessError):
+        _normalize_slide(img, 1, tmp_path, is_video=False)

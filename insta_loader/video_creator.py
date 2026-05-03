@@ -55,3 +55,33 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
         return candidate
     else:
         return None
+
+
+_VF = (
+    "scale=1080:1920:force_original_aspect_ratio=decrease,"
+    "pad=1080:1920:(ow-iw)/2:(oh-ih)/2"
+)
+
+
+def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool) -> Path:
+    out = tmp_dir / f"clip_{index:03d}.mp4"
+    if is_video:
+        cmd = [
+            "ffmpeg", "-i", str(slide_path),
+            "-vf", _VF,
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac",
+            "-y", str(out),
+        ]
+    else:
+        cmd = [
+            "ffmpeg",
+            "-loop", "1", "-t", "15", "-i", str(slide_path),
+            "-vf", _VF,
+            "-r", "30",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-an",
+            "-y", str(out),
+        ]
+    subprocess.run(cmd, check=True, capture_output=True)
+    return out
