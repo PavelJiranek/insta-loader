@@ -92,7 +92,8 @@ def _mark_youtube_outdated(base: Path, folder_name: str) -> None:
 _VF = (
     "scale=1080:1920:force_original_aspect_ratio=decrease:out_range=tv,"
     "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
-    "format=yuv420p"
+    "format=yuv420p,"
+    "setsar=1:1"
 )
 
 _COLOR_FLAGS = [
@@ -273,5 +274,6 @@ def run(config: VideoConfig) -> None:
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")
+                output_path.unlink(missing_ok=True)
             finally:
                 shutil.rmtree(tmp_dir, ignore_errors=True)
