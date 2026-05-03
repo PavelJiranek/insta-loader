@@ -4,7 +4,7 @@ from rich.progress import (
     TaskID,
     TaskProgressColumn,
     TextColumn,
-    TimeRemainingColumn,
+    TimeElapsedColumn,
 )
 from rich import print as rprint
 
@@ -17,7 +17,7 @@ def create_progress() -> Progress:
         BarColumn(),
         TaskProgressColumn(),
         TextColumn("[dim]{task.fields[current_file]}"),
-        TimeRemainingColumn(),
+        TimeElapsedColumn(),
     )
 
 
