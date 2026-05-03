@@ -46,6 +46,12 @@ def test_slide_exists_false_for_different_name(tmp_path):
     assert slide_exists(tmp_path, "Summer", 1) is False
 
 
+def test_slide_exists_no_false_positive_on_longer_index(tmp_path):
+    # Travel_010_* must not match the glob for idx=1 (Travel_01_*)
+    (tmp_path / "Travel_010_20230415_143200.mp4").touch()
+    assert slide_exists(tmp_path, "Travel", 1) is False
+
+
 def test_highlight_dir_creates_folder(tmp_path):
     result = highlight_dir(tmp_path, "Travel")
     assert result.exists()

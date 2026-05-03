@@ -4,6 +4,8 @@ from typing import Union
 
 
 def sanitize_name(title: str) -> str:
+    # Intentionally minimal: only replaces characters common in Instagram titles.
+    # Extend if broader filesystem compatibility is needed.
     return title.replace("/", "-").replace(" ", "_")
 
 
