@@ -178,3 +178,38 @@ def test_normalize_slide_raises_on_ffmpeg_error(mock_run, tmp_path):
 
     with pytest.raises(subprocess.CalledProcessError):
         _normalize_slide(img, 1, tmp_path, is_video=False)
+
+
+from insta_loader.video_creator import _concat_clips
+
+
+@patch("insta_loader.video_creator.subprocess.run")
+def test_concat_clips_runs_ffmpeg_concat(mock_run, tmp_path):
+    clips = [tmp_path / "clip_001.mp4", tmp_path / "clip_002.mp4"]
+    output = tmp_path / "out.mp4"
+
+    _concat_clips(clips, output)
+
+    cmd = mock_run.call_args[0][0]
+    assert cmd[0] == "ffmpeg"
+    assert "-f" in cmd
+    assert "concat" in cmd
+    assert str(output) in cmd
+
+
+@patch("insta_loader.video_creator.subprocess.run")
+def test_concat_clips_list_file_contains_all_clips(mock_run, tmp_path):
+    clips = [tmp_path / "clip_001.mp4", tmp_path / "clip_002.mp4"]
+    clips[0].touch()
+    clips[1].touch()
+    output = tmp_path / "out.mp4"
+
+    _concat_clips(clips, output)
+
+    # find the list file arg (-i <list_file>)
+    cmd = mock_run.call_args[0][0]
+    i_index = cmd.index("-i")
+    list_file = Path(cmd[i_index + 1])
+    content = list_file.read_text()
+    assert str(clips[0].resolve()) in content
+    assert str(clips[1].resolve()) in content
