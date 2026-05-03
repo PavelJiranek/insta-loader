@@ -8,8 +8,12 @@ import time
 from pathlib import Path
 from typing import Optional
 
+import imageio_ffmpeg
+
 from insta_loader import progress as prog
 from insta_loader.cli import VideoConfig
+
+_FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 
 def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
@@ -71,7 +75,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
     out = tmp_dir / f"clip_{index:03d}.mp4"
     if is_video:
         cmd = [
-            "ffmpeg", "-i", str(slide_path),
+            _FFMPEG, "-i", str(slide_path),
             "-vf", _VF,
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac",
@@ -79,7 +83,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
         ]
     else:
         cmd = [
-            "ffmpeg",
+            _FFMPEG,
             "-loop", "1", "-t", "15", "-i", str(slide_path),
             "-vf", _VF,
             "-r", "30",
@@ -95,7 +99,7 @@ def _concat_clips(clip_paths: list, output_path: Path) -> None:
     list_file = clip_paths[0].parent / "concat_list.txt"
     list_file.write_text("\n".join(f"file '{p.resolve()}'" for p in clip_paths))
     cmd = [
-        "ffmpeg", "-f", "concat", "-safe", "0",
+        _FFMPEG, "-f", "concat", "-safe", "0",
         "-i", str(list_file),
         "-c", "copy",
         "-y", str(output_path),
@@ -130,9 +134,6 @@ def _filter_highlights(query: str, dirs: list) -> list:
 
 
 def run(config: VideoConfig) -> None:
-    if shutil.which("ffmpeg") is None:
-        print("✗  ffmpeg not found. Install it: https://ffmpeg.org/download.html")
-        sys.exit(1)
 
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     if not base.exists():

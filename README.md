@@ -78,7 +78,7 @@ python insta.py videos natgeo --highlight "travel"
 
 Videos are saved to `output/<username>/videos/<HighlightName>.mp4`. If a video already exists you will be prompted to overwrite, skip, or save as a new file.
 
-Requires `ffmpeg` on your PATH. Install from [ffmpeg.org](https://ffmpeg.org/download.html).
+ffmpeg is bundled via `imageio-ffmpeg` — no separate install required.
 
 ---
 

@@ -3,8 +3,9 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 import pytest
+import imageio_ffmpeg
 from insta_loader.cli import VideoConfig
-from insta_loader.video_creator import _collect_slides, _resolve_conflict, _normalize_slide
+from insta_loader.video_creator import _collect_slides, _resolve_conflict, _normalize_slide, _FFMPEG
 
 def test_video_config_defaults():
     c = VideoConfig(username="natgeo")
@@ -136,7 +137,7 @@ def test_normalize_slide_image_uses_loop_and_no_audio(mock_run, tmp_path):
     out = _normalize_slide(img, 1, tmp_path, is_video=False)
 
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "ffmpeg"
+    assert cmd[0] == _FFMPEG
     assert "-loop" in cmd
     assert "15" in cmd
     assert "-an" in cmd
@@ -152,7 +153,7 @@ def test_normalize_slide_video_preserves_audio(mock_run, tmp_path):
     out = _normalize_slide(vid, 2, tmp_path, is_video=True)
 
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "ffmpeg"
+    assert cmd[0] == _FFMPEG
     assert "-loop" not in cmd
     assert "-c:a" in cmd and "aac" in cmd
     assert "-an" not in cmd
@@ -191,7 +192,7 @@ def test_concat_clips_runs_ffmpeg_concat(mock_run, tmp_path):
     _concat_clips(clips, output)
 
     cmd = mock_run.call_args[0][0]
-    assert cmd[0] == "ffmpeg"
+    assert cmd[0] == _FFMPEG
     assert "-f" in cmd
     assert "concat" in cmd
     assert str(output) in cmd
@@ -273,22 +274,13 @@ from unittest.mock import MagicMock
 from insta_loader.video_creator import run
 
 
-@patch("insta_loader.video_creator.shutil.which", return_value=None)
-def test_run_exits_when_ffmpeg_missing(mock_which):
-    with pytest.raises(SystemExit) as exc:
-        run(VideoConfig(username="test"))
-    assert exc.value.code == 1
-
-
-@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
-def test_run_exits_when_base_dir_missing(mock_which, tmp_path):
+def test_run_exits_when_base_dir_missing(tmp_path):
     with pytest.raises(SystemExit) as exc:
         run(VideoConfig(username="test", output_dir=str(tmp_path / "nonexistent")))
     assert exc.value.code == 1
 
 
-@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
-def test_run_exits_when_no_highlight_dirs_with_metadata(mock_which, tmp_path):
+def test_run_exits_when_no_highlight_dirs_with_metadata(tmp_path):
     (tmp_path / "some_dir").mkdir()  # has no metadata.json
     with pytest.raises(SystemExit) as exc:
         run(VideoConfig(username="test", output_dir=str(tmp_path)))
@@ -299,9 +291,8 @@ def test_run_exits_when_no_highlight_dirs_with_metadata(mock_which, tmp_path):
 @patch("insta_loader.video_creator._normalize_slide")
 @patch("insta_loader.video_creator._collect_slides", return_value=[])
 @patch("insta_loader.video_creator.prog")
-@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
 def test_run_skips_highlight_with_no_valid_slides(
-    mock_which, mock_prog, mock_collect, mock_norm, mock_concat, tmp_path
+    mock_prog, mock_collect, mock_norm, mock_concat, tmp_path
 ):
     mock_prog.create_progress.return_value = MagicMock()
     hdir = tmp_path / "Travel"
@@ -320,9 +311,8 @@ def test_run_skips_highlight_with_no_valid_slides(
 @patch("insta_loader.video_creator._resolve_conflict")
 @patch("insta_loader.video_creator._collect_slides")
 @patch("insta_loader.video_creator.prog")
-@patch("insta_loader.video_creator.shutil.which", return_value="/usr/bin/ffmpeg")
 def test_run_skips_highlight_when_resolve_returns_none(
-    mock_which, mock_prog, mock_collect, mock_conflict, mock_norm, mock_concat, tmp_path
+    mock_prog, mock_collect, mock_conflict, mock_norm, mock_concat, tmp_path
 ):
     mock_prog.create_progress.return_value = MagicMock()
     mock_collect.return_value = [{"index": 1, "type": "image", "path": tmp_path / "f.jpg"}]
