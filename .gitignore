@@ -1,0 +1,14 @@
+# Default output path (username/highlights/)
+*/highlights/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# OS / tools
+.DS_Store
+.superpowers/
