@@ -11,6 +11,7 @@ class Config:
     output_dir: Optional[str]
     highlight: Optional[str]
     login_user: Optional[str]
+    update: bool = False
 
 
 @dataclass

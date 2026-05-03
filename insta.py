@@ -22,6 +22,7 @@ def main() -> None:
     hl.add_argument("username", help="Instagram username (without @)")
     hl.add_argument("--highlight", help="Partial name match — download only this highlight")
     hl.add_argument("--output-dir", dest="output_dir", help="Save to this directory instead of output/<username>/")
+    hl.add_argument("--update", action="store_true", help="Skip highlights already marked complete — only download new or partial ones")
     hl.add_argument(
         "--login-user",
         dest="login_user",
@@ -47,7 +48,7 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "highlights":
-        if not args.highlight:
+        if not args.highlight and not args.update:
             print(f"⚠  This will download all highlights for @{args.username}.")
             answer = input("Continue? [y/N]: ").strip().lower()
             if answer != "y":
@@ -58,6 +59,7 @@ def main() -> None:
             output_dir=args.output_dir,
             highlight=args.highlight,
             login_user=args.login_user,
+            update=args.update,
         ))
 
     elif args.command == "videos":
