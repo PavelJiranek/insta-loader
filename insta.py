@@ -33,6 +33,7 @@ def main() -> None:
     vid.add_argument("username", help="Instagram username (without @)")
     vid.add_argument("--highlight", help="Partial name match — create video only for this highlight")
     vid.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<username>/)")
+    vid.add_argument("--image-duration", dest="image_duration", type=int, default=10, metavar="SECONDS", help="Duration in seconds for image slides (default: 10)")
 
     summ = subparsers.add_parser("summary", help="Regenerate summary.json from downloaded slides on disk.")
     summ.add_argument("username", help="Instagram username (without @)")
@@ -63,6 +64,7 @@ def main() -> None:
             username=args.username,
             highlight=args.highlight,
             output_dir=args.output_dir,
+            image_duration=args.image_duration,
         ))
 
     elif args.command == "summary":

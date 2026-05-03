@@ -71,7 +71,7 @@ _VF = (
 )
 
 
-def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool) -> Path:
+def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10) -> Path:
     out = tmp_dir / f"clip_{index:03d}.mp4"
     if is_video:
         cmd = [
@@ -84,7 +84,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
     else:
         cmd = [
             _FFMPEG,
-            "-loop", "1", "-t", "10", "-i", str(slide_path),
+            "-loop", "1", "-t", str(image_duration), "-i", str(slide_path),
             "-vf", _VF,
             "-r", "30",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
@@ -178,7 +178,8 @@ def run(config: VideoConfig) -> None:
                 clips = []
                 for slide in slides:
                     clip = _normalize_slide(
-                        slide["path"], slide["index"], tmp_dir, slide["type"] == "video"
+                        slide["path"], slide["index"], tmp_dir, slide["type"] == "video",
+                        config.image_duration,
                     )
                     clips.append(clip)
                     prog.advance(progress, task_id, slide["path"].name)

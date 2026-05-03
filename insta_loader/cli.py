@@ -18,6 +18,7 @@ class VideoConfig:
     username: str
     highlight: Optional[str] = None
     output_dir: Optional[str] = None
+    image_duration: int = 10
 
 
 def parse_args(argv=None) -> Config:
