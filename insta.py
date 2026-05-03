@@ -43,15 +43,15 @@ def main() -> None:
     summ.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<username>/)")
 
     yt_meta = subparsers.add_parser("youtube-meta", help="Generate YouTube metadata JSON for downloaded highlights.")
-    yt_meta.add_argument("insta_username", metavar="insta-username", help="Instagram username (folder name under output/)")
+    yt_meta.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
     yt_meta.add_argument("--highlight", help="Partial name match — process only this highlight")
     yt_meta.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
 
     yt_upload = subparsers.add_parser("youtube-upload", help="Upload assembled MP4s as private YouTube videos.")
-    yt_upload.add_argument("insta_username", metavar="insta-username", help="Instagram username (folder name under output/)")
+    yt_upload.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
     yt_upload.add_argument("--highlight", help="Partial name match — upload only this highlight")
     yt_upload.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
-    yt_upload.add_argument("--client-secrets", dest="client_secrets", help="Path to client_secrets.json (or set YOUTUBE_CLIENT_SECRETS)")
+    yt_upload.add_argument("--client-secrets", dest="client_secrets", default=os.environ.get("YOUTUBE_CLIENT_SECRETS"), help="Path to client_secrets.json (or set YOUTUBE_CLIENT_SECRETS)")
     yt_upload.add_argument("--playlist", default="Story Highlights", help="YouTube playlist name (default: Story Highlights)")
 
     args = parser.parse_args()
@@ -89,7 +89,7 @@ def main() -> None:
 
     elif args.command == "youtube-meta":
         run_youtube_meta(YoutubeConfig(
-            username=args.insta_username,
+            username=args.username,
             highlight=args.highlight,
             output_dir=args.output_dir,
         ))
@@ -97,7 +97,7 @@ def main() -> None:
     elif args.command == "youtube-upload":
         from insta_loader.youtube_uploader import run as run_youtube_upload
         run_youtube_upload(YoutubeConfig(
-            username=args.insta_username,
+            username=args.username,
             highlight=args.highlight,
             output_dir=args.output_dir,
             client_secrets=args.client_secrets,
