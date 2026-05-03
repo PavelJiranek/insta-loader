@@ -84,11 +84,13 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
     else:
         cmd = [
             _FFMPEG,
-            "-loop", "1", "-t", str(image_duration), "-i", str(slide_path),
+            "-loop", "1", "-i", str(slide_path),
+            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
             "-vf", _VF,
             "-r", "30",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-an",
+            "-c:a", "aac",
+            "-t", str(image_duration),
             "-y", str(out),
         ]
     subprocess.run(cmd, check=True, capture_output=True)
