@@ -268,8 +268,10 @@ def test_filter_highlights_invalid_selection_exits_1(tmp_path, monkeypatch):
     assert exc.value.code == 1
 
 
+import os
+import time as _time
 from unittest.mock import MagicMock
-from insta_loader.video_creator import run
+from insta_loader.video_creator import run, _needs_update, _mark_youtube_outdated
 
 
 def test_run_exits_when_base_dir_missing(tmp_path):
@@ -325,3 +327,113 @@ def test_run_skips_highlight_when_resolve_returns_none(
     mock_norm.assert_not_called()
     mock_concat.assert_not_called()
     mock_prog.log_video_skip.assert_called_once()
+
+
+# ── _needs_update ──────────────────────────────────────────────────────────────
+
+def test_needs_update_true_when_no_video(tmp_path):
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    (hdir / "metadata.json").write_bytes(b"{}")
+    assert _needs_update(hdir, tmp_path / "Travel.mp4") is True
+
+
+def test_needs_update_false_when_video_is_newer(tmp_path):
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    slide = hdir / "slide.jpg"
+    slide.write_bytes(b"img")
+    video = tmp_path / "Travel.mp4"
+    video.write_bytes(b"vid")
+    future = _time.time() + 3600
+    os.utime(video, (future, future))
+    assert _needs_update(hdir, video) is False
+
+
+def test_needs_update_true_when_slide_is_newer(tmp_path):
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    video = tmp_path / "Travel.mp4"
+    video.write_bytes(b"vid")
+    # Make the slide appear newer by back-dating the video
+    old = _time.time() - 3600
+    os.utime(video, (old, old))
+    (hdir / "slide.jpg").write_bytes(b"img")
+    assert _needs_update(hdir, video) is True
+
+
+# ── _mark_youtube_outdated ─────────────────────────────────────────────────────
+
+def test_mark_youtube_outdated_sets_flag(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    meta_path = youtube_dir / "Travel.json"
+    meta_path.write_text(json.dumps({"uploaded": True, "youtube_id": "abc", "outdated": False}))
+    _mark_youtube_outdated(tmp_path, "Travel")
+    assert json.loads(meta_path.read_text())["outdated"] is True
+
+
+def test_mark_youtube_outdated_skips_if_not_uploaded(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    meta_path = youtube_dir / "Travel.json"
+    meta_path.write_text(json.dumps({"uploaded": False, "youtube_id": None}))
+    _mark_youtube_outdated(tmp_path, "Travel")
+    assert json.loads(meta_path.read_text()).get("outdated") is None
+
+
+def test_mark_youtube_outdated_no_op_when_no_json(tmp_path):
+    _mark_youtube_outdated(tmp_path, "Travel")  # must not raise
+
+
+# ── run() update mode ──────────────────────────────────────────────────────────
+
+@patch("insta_loader.video_creator._concat_clips")
+@patch("insta_loader.video_creator._normalize_slide")
+@patch("insta_loader.video_creator._collect_slides")
+@patch("insta_loader.video_creator.prog")
+def test_run_update_skips_up_to_date_video(
+    mock_prog, mock_collect, mock_norm, mock_concat, tmp_path
+):
+    mock_prog.create_progress.return_value = MagicMock()
+    mock_collect.return_value = [{"index": 1, "type": "image", "path": tmp_path / "f.jpg"}]
+
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
+
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    video = videos_dir / "Travel.mp4"
+    video.write_bytes(b"vid")
+    future = _time.time() + 3600
+    os.utime(video, (future, future))
+
+    run(VideoConfig(username="test", output_dir=str(tmp_path), update=True))
+
+    mock_norm.assert_not_called()
+    mock_concat.assert_not_called()
+    mock_prog.log_video_skip.assert_called_once()
+
+
+@patch("insta_loader.video_creator._concat_clips")
+@patch("insta_loader.video_creator._normalize_slide")
+@patch("insta_loader.video_creator._collect_slides")
+@patch("insta_loader.video_creator.prog")
+def test_run_update_encodes_highlight_with_no_video(
+    mock_prog, mock_collect, mock_norm, mock_concat, tmp_path
+):
+    mock_prog.create_progress.return_value = MagicMock()
+    slides = [{"index": 1, "type": "image", "path": tmp_path / "f.jpg"}]
+    mock_collect.return_value = slides
+    mock_norm.return_value = tmp_path / "clip_001.mp4"
+
+    hdir = tmp_path / "Travel"
+    hdir.mkdir()
+    (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
+    # No video file — should be encoded
+
+    run(VideoConfig(username="test", output_dir=str(tmp_path), update=True))
+
+    mock_norm.assert_called_once()
+    mock_concat.assert_called_once()

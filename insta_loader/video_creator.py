@@ -65,6 +65,29 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
         return None
 
 
+def _needs_update(highlight_dir: Path, video_path: Path) -> bool:
+    """True if no video exists or any highlight file is newer than the video."""
+    if not video_path.exists():
+        return True
+    video_mtime = video_path.stat().st_mtime
+    return any(
+        f.stat().st_mtime > video_mtime
+        for f in highlight_dir.iterdir()
+        if f.is_file()
+    )
+
+
+def _mark_youtube_outdated(base: Path, folder_name: str) -> None:
+    """Set outdated=True in youtube/<folder_name>.json if it was previously uploaded."""
+    meta_path = base / "youtube" / f"{folder_name}.json"
+    if not meta_path.exists():
+        return
+    meta = json.loads(meta_path.read_text())
+    if meta.get("uploaded"):
+        meta["outdated"] = True
+        meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False))
+
+
 _VF = (
     "scale=1080:1920:force_original_aspect_ratio=decrease:out_range=tv,"
     "pad=1080:1920:(ow-iw)/2:(oh-ih)/2,"
@@ -184,11 +207,19 @@ def run(config: VideoConfig) -> None:
             prog.log_video_skip(f"{title} — no valid slides, skipping")
             continue
         output_path = videos_dir / f"{hdir.name}.mp4"
-        resolved = _resolve_conflict(output_path)
-        if resolved is None:
-            prog.log_video_skip(f"{title}.mp4 skipped")
-            continue
-        queue.append((title, slides, resolved))
+        if config.update:
+            if not _needs_update(hdir, output_path):
+                prog.log_video_skip(f"{title}.mp4 is up to date")
+                continue
+            if output_path.exists():
+                output_path.unlink()
+            resolved = output_path
+        else:
+            resolved = _resolve_conflict(output_path)
+            if resolved is None:
+                prog.log_video_skip(f"{title}.mp4 skipped")
+                continue
+        queue.append((title, slides, resolved, hdir))
 
     if not queue:
         return
@@ -196,7 +227,7 @@ def run(config: VideoConfig) -> None:
     print(f"\n✓  {len(queue)} highlight(s) to encode\n")
 
     with prog.create_progress() as progress:
-        for title, slides, output_path in queue:
+        for title, slides, output_path, hdir in queue:
             task_id = prog.add_video_task(progress, title, len(slides))
             tmp_dir = Path(tempfile.mkdtemp())
             start = time.time()
@@ -213,6 +244,8 @@ def run(config: VideoConfig) -> None:
                 elapsed = time.time() - start
                 m, s = divmod(int(elapsed), 60)
                 print(f"✓  {output_path.name} — {len(slides)} slides, {m}m {s:02d}s")
+                if config.update:
+                    _mark_youtube_outdated(base, hdir.name)
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")
