@@ -310,8 +310,8 @@ def test_update_skips_complete_highlight(mock_il, mock_prog, mock_get_all, mock_
     mock_get_all.return_value = [make_mock_highlight("Travel", num_items=2)]
     mock_organizer.sanitize_name.return_value = "Travel"
 
-    folder = tmp_path / "Travel"
-    folder.mkdir()
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
     (folder / "metadata.json").write_text(json.dumps({"status": "complete", "total_items": 2}))
 
     run(make_config(highlight="Travel", output_dir=str(tmp_path), update=True))
@@ -337,8 +337,8 @@ def test_update_reprocesses_complete_highlight_with_new_slides(mock_il, mock_pro
     mock_organizer.slide_filename.return_value = "Travel_01"
     mock_organizer.slide_exists.return_value = False
 
-    folder = tmp_path / "Travel"
-    folder.mkdir()
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
     (folder / "metadata.json").write_text(json.dumps({"status": "complete", "total_items": 2}))
 
     run(make_config(highlight="Travel", output_dir=str(tmp_path), update=True))
@@ -363,8 +363,8 @@ def test_update_processes_partial_highlight(mock_il, mock_prog, mock_get_all, mo
     mock_organizer.slide_filename.return_value = "Travel_01"
     mock_organizer.slide_exists.return_value = False
 
-    folder = tmp_path / "Travel"
-    folder.mkdir()
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
     (folder / "metadata.json").write_text(json.dumps({"status": "partial"}))
 
     run(make_config(highlight="Travel", output_dir=str(tmp_path), update=True))

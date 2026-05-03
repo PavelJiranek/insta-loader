@@ -85,7 +85,7 @@ def test_highlight_dir_creates_folder(tmp_path):
 
 def test_highlight_dir_returns_correct_path(tmp_path):
     result = highlight_dir(tmp_path, "Travel")
-    assert result == tmp_path / "Travel"
+    assert result == tmp_path / "instagram" / "Travel"
 
 
 def test_highlight_dir_sanitizes_name(tmp_path):
@@ -96,7 +96,7 @@ def test_highlight_dir_sanitizes_name(tmp_path):
 def test_highlight_dir_is_idempotent(tmp_path):
     highlight_dir(tmp_path, "Travel")
     highlight_dir(tmp_path, "Travel")  # second call must not raise
-    assert (tmp_path / "Travel").exists()
+    assert (tmp_path / "instagram" / "Travel").exists()
 
 
 def test_write_metadata_creates_file(tmp_path):

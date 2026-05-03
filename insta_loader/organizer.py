@@ -16,7 +16,7 @@ def sanitize_name(title: str) -> str:
 
 
 def highlight_dir(base_dir: Union[str, Path], highlight_title: str) -> Path:
-    folder = Path(base_dir) / sanitize_name(highlight_title)
+    folder = Path(base_dir) / "instagram" / sanitize_name(highlight_title)
     folder.mkdir(parents=True, exist_ok=True)
     return folder
 

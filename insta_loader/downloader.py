@@ -125,7 +125,7 @@ def run(config: Config) -> None:
             items = None
 
             if config.update:
-                folder_path = Path(base_dir) / organizer.sanitize_name(highlight.title)
+                folder_path = Path(base_dir) / "instagram" / organizer.sanitize_name(highlight.title)
                 meta_path = folder_path / "metadata.json"
                 if meta_path.exists():
                     existing = json.loads(meta_path.read_text())

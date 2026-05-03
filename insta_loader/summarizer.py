@@ -8,12 +8,13 @@ from typing import Optional, Union
 def run(username: str, output_dir: Optional[str] = None) -> None:
     base = Path(output_dir) if output_dir else Path("output") / username
 
-    if not base.exists():
-        print(f"✗  No downloads found at {base}")
+    instagram_dir = base / "instagram"
+    if not instagram_dir.exists():
+        print(f"✗  No downloads found at {instagram_dir}")
         sys.exit(1)
 
     highlights = []
-    for folder in sorted(base.iterdir()):
+    for folder in sorted(instagram_dir.iterdir()):
         if not folder.is_dir():
             continue
         meta_file = folder / "metadata.json"
@@ -50,7 +51,7 @@ def run(username: str, output_dir: Optional[str] = None) -> None:
     summary = {
         "username": username,
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "output_dir": str(base),
+        "output_dir": str(instagram_dir),
         "total_highlights": len(highlights),
         "highlights_complete": sum(1 for h in highlights if h.get("status") == "complete"),
         "highlights_partial": sum(1 for h in highlights if h.get("status") == "partial"),
@@ -63,7 +64,7 @@ def run(username: str, output_dir: Optional[str] = None) -> None:
         "highlights": highlights,
     }
 
-    out_file = base / "summary.json"
+    out_file = instagram_dir / "summary.json"
     out_file.write_text(json.dumps(summary, indent=2, ensure_ascii=False))
     print(f"✓  Summary written to {out_file}")
     print(f"   {len(highlights)} highlights · {total_downloaded}/{total_slides} slides · {total_failed} failed")

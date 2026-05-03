@@ -19,23 +19,29 @@ def write_meta(folder: Path, **kwargs):
     (folder / "metadata.json").write_text(json.dumps(defaults))
 
 
+def insta_dir(base: Path) -> Path:
+    d = base / "instagram"
+    d.mkdir(exist_ok=True)
+    return d
+
+
 def read_summary(base: Path) -> dict:
-    return json.loads((base / "summary.json").read_text())
+    return json.loads((base / "instagram" / "summary.json").read_text())
 
 
 def test_summary_written_to_output_dir(tmp_path):
-    folder = tmp_path / "Travel"
+    folder = insta_dir(tmp_path) / "Travel"
     folder.mkdir()
     write_meta(folder)
 
     run("testuser", str(tmp_path))
 
-    assert (tmp_path / "summary.json").exists()
+    assert (tmp_path / "instagram" / "summary.json").exists()
 
 
 def test_summary_counts_highlights(tmp_path):
     for name in ["Travel", "Summer", "Winter"]:
-        f = tmp_path / name
+        f = insta_dir(tmp_path) / name
         f.mkdir()
         write_meta(f)
 
@@ -47,7 +53,7 @@ def test_summary_counts_highlights(tmp_path):
 
 def test_summary_totals_slides(tmp_path):
     for name, total, downloaded in [("A", 10, 10), ("B", 5, 4)]:
-        f = tmp_path / name
+        f = insta_dir(tmp_path) / name
         f.mkdir()
         write_meta(f, total_items=total, downloaded=downloaded,
                    status="complete" if total == downloaded else "partial")
@@ -60,12 +66,13 @@ def test_summary_totals_slides(tmp_path):
 
 
 def test_summary_counts_complete_and_partial(tmp_path):
-    (tmp_path / "A").mkdir()
-    write_meta(tmp_path / "A", status="complete")
-    (tmp_path / "B").mkdir()
-    write_meta(tmp_path / "B", status="partial")
-    (tmp_path / "C").mkdir()
-    write_meta(tmp_path / "C", status="complete")
+    ig = insta_dir(tmp_path)
+    (ig / "A").mkdir()
+    write_meta(ig / "A", status="complete")
+    (ig / "B").mkdir()
+    write_meta(ig / "B", status="partial")
+    (ig / "C").mkdir()
+    write_meta(ig / "C", status="complete")
 
     run("testuser", str(tmp_path))
 
@@ -75,7 +82,7 @@ def test_summary_counts_complete_and_partial(tmp_path):
 
 
 def test_summary_counts_failed_slides(tmp_path):
-    folder = tmp_path / "Travel"
+    folder = insta_dir(tmp_path) / "Travel"
     folder.mkdir()
     slides = [
         {"index": 1, "status": "downloaded"},
@@ -93,7 +100,7 @@ def test_summary_counts_failed_slides(tmp_path):
 
 
 def test_summary_handles_missing_metadata(tmp_path):
-    folder = tmp_path / "NoMeta"
+    folder = insta_dir(tmp_path) / "NoMeta"
     folder.mkdir()
     # no metadata.json
 
@@ -110,8 +117,9 @@ def test_summary_exits_1_when_dir_not_found(tmp_path):
 
 
 def test_summary_includes_username_and_generated_at(tmp_path):
-    (tmp_path / "Travel").mkdir()
-    write_meta(tmp_path / "Travel")
+    folder = insta_dir(tmp_path) / "Travel"
+    folder.mkdir()
+    write_meta(folder)
 
     run("testuser", str(tmp_path))
 
@@ -123,10 +131,11 @@ def test_summary_includes_username_and_generated_at(tmp_path):
 def test_summary_uses_default_output_path(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     user_dir = tmp_path / "output" / "testuser"
-    user_dir.mkdir(parents=True)
-    (user_dir / "Travel").mkdir()
-    write_meta(user_dir / "Travel")
+    ig_dir = user_dir / "instagram"
+    ig_dir.mkdir(parents=True)
+    (ig_dir / "Travel").mkdir()
+    write_meta(ig_dir / "Travel")
 
     run("testuser")
 
-    assert (user_dir / "summary.json").exists()
+    assert (ig_dir / "summary.json").exists()

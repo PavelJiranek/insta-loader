@@ -201,15 +201,16 @@ def _filter_highlights(query: str, dirs: list) -> list:
 def run(config: VideoConfig) -> None:
 
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
-    if not base.exists():
-        print(f"✗  No downloaded highlights found at {base}")
+    instagram_dir = base / "instagram"
+    if not instagram_dir.exists():
+        print(f"✗  No downloaded highlights found at {instagram_dir}")
         sys.exit(1)
 
     highlight_dirs = sorted(
-        d for d in base.iterdir() if d.is_dir() and (d / "metadata.json").exists()
+        d for d in instagram_dir.iterdir() if d.is_dir() and (d / "metadata.json").exists()
     )
     if not highlight_dirs:
-        print(f"✗  No downloaded highlights found at {base}")
+        print(f"✗  No downloaded highlights found at {instagram_dir}")
         sys.exit(1)
 
     if config.highlight:

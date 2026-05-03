@@ -301,7 +301,9 @@ def test_run_exits_when_base_dir_missing(tmp_path):
 
 
 def test_run_exits_when_no_highlight_dirs_with_metadata(tmp_path):
-    (tmp_path / "some_dir").mkdir()  # has no metadata.json
+    ig = tmp_path / "instagram"
+    ig.mkdir()
+    (ig / "some_dir").mkdir()  # has no metadata.json
     with pytest.raises(SystemExit) as exc:
         run(VideoConfig(username="test", output_dir=str(tmp_path)))
     assert exc.value.code == 1
@@ -315,8 +317,8 @@ def test_run_skips_highlight_with_no_valid_slides(
     mock_prog, mock_collect, mock_norm, mock_concat, tmp_path
 ):
     mock_prog.create_progress.return_value = MagicMock()
-    hdir = tmp_path / "Travel"
-    hdir.mkdir()
+    hdir = tmp_path / "instagram" / "Travel"
+    hdir.mkdir(parents=True)
     (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
 
     run(VideoConfig(username="test", output_dir=str(tmp_path)))
@@ -338,8 +340,8 @@ def test_run_skips_highlight_when_resolve_returns_none(
     mock_collect.return_value = [{"index": 1, "type": "image", "path": tmp_path / "f.jpg"}]
     mock_conflict.return_value = None
 
-    hdir = tmp_path / "Travel"
-    hdir.mkdir()
+    hdir = tmp_path / "instagram" / "Travel"
+    hdir.mkdir(parents=True)
     (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
 
     run(VideoConfig(username="test", output_dir=str(tmp_path)))
@@ -418,8 +420,8 @@ def test_run_update_skips_up_to_date_video(
     mock_prog.create_progress.return_value = MagicMock()
     mock_collect.return_value = [{"index": 1, "type": "image", "path": tmp_path / "f.jpg"}]
 
-    hdir = tmp_path / "Travel"
-    hdir.mkdir()
+    hdir = tmp_path / "instagram" / "Travel"
+    hdir.mkdir(parents=True)
     (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
 
     videos_dir = tmp_path / "videos"
@@ -447,8 +449,8 @@ def test_run_update_encodes_highlight_with_no_video(
     mock_collect.return_value = slides
     mock_norm.return_value = tmp_path / "clip_001.mp4"
 
-    hdir = tmp_path / "Travel"
-    hdir.mkdir()
+    hdir = tmp_path / "instagram" / "Travel"
+    hdir.mkdir(parents=True)
     (hdir / "metadata.json").write_text('{"highlight_title": "Travel", "slides": []}')
     # No video file — should be encoded
 

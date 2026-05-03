@@ -229,7 +229,7 @@ from insta_loader.youtube_meta import run as run_meta
 
 
 def _make_highlight(base, name, slides=None):
-    hdir = base / name
+    hdir = base / "instagram" / name
     hdir.mkdir(parents=True)
     if slides is None:
         slides = [{"date_utc": "2026-04-01T00:00:00Z", "status": "downloaded"}]
