@@ -30,9 +30,13 @@ def _print_setup_instructions(secrets_path: Path) -> None:
     print(f"✗  YouTube client secrets not found at {secrets_path}.")
     print("   To set up:")
     print("   1. Go to https://console.cloud.google.com/")
-    print("   2. Create a project → Enable YouTube Data API v3")
-    print("   3. Create OAuth 2.0 credentials (Desktop app)")
-    print(f"   4. Download and save as {secrets_path}")
+    print("   2. Create a project → APIs & Services → Enable APIs → YouTube Data API v3")
+    print("   3. APIs & Services → Credentials → Create Credentials → OAuth client ID")
+    print("      → 'Which API?' select YouTube Data API v3 → choose 'User data' (not Public data)")
+    print("      → App name: anything → your email as support/developer contact")
+    print("      → Scopes: skip (Next) → OAuth client type: Desktop app → Create")
+    print("   4. Download the JSON and save as:")
+    print(f"      {secrets_path}")
 
 
 def _get_credentials(client_secrets_path: Path) -> Credentials:
