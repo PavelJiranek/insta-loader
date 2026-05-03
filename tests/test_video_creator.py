@@ -140,7 +140,10 @@ def test_normalize_slide_image_uses_loop_and_no_audio(mock_run, tmp_path):
     assert cmd[0] == _FFMPEG
     assert "-loop" in cmd
     assert "anullsrc" in " ".join(cmd)
+    # -t must appear before -i (input option, not output option)
+    assert cmd.index("-t") < cmd.index("-i")
     assert cmd[cmd.index("-t") + 1] == "10"
+    assert "-shortest" in cmd
     assert "-an" not in cmd
     assert "-c:a" in cmd and "aac" in cmd
     assert out == tmp_path / "clip_001.mp4"
