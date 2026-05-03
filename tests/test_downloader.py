@@ -217,7 +217,10 @@ def test_loads_saved_session_when_login_user_given(mock_il):
     with pytest.raises(SystemExit):
         run(make_config(login_user="myuser"))
 
-    mock_loader.load_session_from_file.assert_called_once_with("myuser")
+    mock_loader.load_session_from_file.assert_called_once()
+    args = mock_loader.load_session_from_file.call_args[0]
+    assert args[0] == "myuser"
+    assert "session-myuser" in args[1]
 
 
 @patch("insta_loader.downloader.instaloader")

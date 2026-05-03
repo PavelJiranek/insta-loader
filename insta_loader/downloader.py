@@ -1,10 +1,18 @@
 import sys
+from pathlib import Path
 
 import instaloader
 
 from insta_loader import organizer
 from insta_loader import progress as prog
 from insta_loader.cli import Config
+
+
+def _session_path(username: str) -> str:
+    # Always use ~/.config/instaloader/ so the session persists across processes.
+    path = Path.home() / ".config" / "instaloader"
+    path.mkdir(parents=True, exist_ok=True)
+    return str(path / f"session-{username}")
 
 
 def run(config: Config) -> None:
@@ -18,12 +26,14 @@ def run(config: Config) -> None:
     )
 
     if config.login_user:
+        session_file = _session_path(config.login_user)
         try:
-            L.load_session_from_file(config.login_user)
+            L.load_session_from_file(config.login_user, session_file)
         except FileNotFoundError:
             print(f"No saved session for @{config.login_user} — logging in...")
             try:
                 L.interactive_login(config.login_user)
+                L.save_session_to_file(session_file)
             except instaloader.exceptions.BadCredentialsException:
                 print("✗  Wrong password.")
                 sys.exit(1)
