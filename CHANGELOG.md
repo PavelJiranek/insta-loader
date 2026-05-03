@@ -11,6 +11,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 #### V3 — YouTube (implementation in progress)
 - Design spec and implementation plan for `youtube-meta` and `youtube-upload` commands
+- CLI wiring for `youtube-meta` and `youtube-upload` subcommands in `insta.py`; `youtube-upload` uses lazy import to avoid ImportError when `youtube_uploader.py` doesn't exist yet
 - `youtube-meta` command generates per-highlight YouTube metadata JSON (title, description, tags, category, privacy)
 - `youtube-upload` will upload assembled MP4s as private YouTube videos and add them to a "Story Highlights" playlist
 - Metadata builder: `_build_youtube_meta()` with full title/description/tags generation
