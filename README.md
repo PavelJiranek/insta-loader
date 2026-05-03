@@ -22,10 +22,16 @@ On first run you will be prompted for your Instagram password. The session is sa
 
 ## Commands
 
-### `highlights.py` — download highlights
+All commands are available through the unified `insta.py` entry point. Run `python insta.py --help` for a full list or `python insta.py <command> --help` for per-command help.
+
+The legacy `highlights.py` and `summary.py` entry points still work unchanged.
+
+---
+
+### `insta.py highlights` — download highlights
 
 ```
-python highlights.py <username> [options]
+python insta.py highlights <username> [options]
 ```
 
 | Option | Description |
@@ -36,25 +42,52 @@ python highlights.py <username> [options]
 
 ```bash
 # Download all highlights (asks for confirmation)
-python highlights.py natgeo
+python insta.py highlights natgeo
 
 # Partial name match — picks from a list if multiple match
-python highlights.py natgeo --highlight "travel"
+python insta.py highlights natgeo --highlight "travel"
 
 # Specific highlight, custom output dir, explicit login user
-python highlights.py natgeo --highlight "Travel" --output-dir ~/Desktop/insta --login-user myaccount
+python insta.py highlights natgeo --highlight "Travel" --output-dir ~/Desktop/insta --login-user myaccount
 ```
 
 After each run a `summary.json` is written automatically to `output/<username>/`.
 
 ---
 
-### `summary.py` — regenerate summary
+### `insta.py videos` — create highlight videos
+
+Assembles downloaded slides for a user into one MP4 per highlight. Images are shown for 15 seconds; videos play at full duration with audio.
+
+```
+python insta.py videos <username> [options]
+```
+
+| Option | Description |
+|---|---|
+| `--highlight NAME` | Create video only for this highlight (partial name match, case-insensitive). Omit to process all. |
+| `--output-dir DIR` | Base directory (default: `output/<username>/`). |
+
+```bash
+# Create videos for all downloaded highlights
+python insta.py videos natgeo
+
+# Create video for one highlight
+python insta.py videos natgeo --highlight "travel"
+```
+
+Videos are saved to `output/<username>/videos/<HighlightName>.mp4`. If a video already exists you will be prompted to overwrite, skip, or save as a new file.
+
+Requires `ffmpeg` on your PATH. Install from [ffmpeg.org](https://ffmpeg.org/download.html).
+
+---
+
+### `insta.py summary` — regenerate summary
 
 Reads all `metadata.json` files on disk and writes `output/<username>/summary.json`. Useful if you want to refresh the summary without re-downloading.
 
 ```
-python summary.py <username> [options]
+python insta.py summary <username> [options]
 ```
 
 | Option | Description |
@@ -62,7 +95,7 @@ python summary.py <username> [options]
 | `--output-dir DIR` | Read from this directory instead of `output/<username>/`. |
 
 ```bash
-python summary.py natgeo
+python insta.py summary natgeo
 ```
 
 ---
