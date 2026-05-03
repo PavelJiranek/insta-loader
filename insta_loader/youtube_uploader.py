@@ -36,11 +36,16 @@ def _print_setup_instructions(secrets_path: Path) -> None:
 
 
 def _get_credentials(client_secrets_path: Path) -> Credentials:
+    if not client_secrets_path.exists():
+        _print_setup_instructions(client_secrets_path)
+        sys.exit(1)
+
     creds = None
     if TOKEN_PATH.exists():
         try:
             creds = Credentials.from_authorized_user_file(str(TOKEN_PATH), SCOPES)
         except Exception:
+            TOKEN_PATH.unlink(missing_ok=True)
             creds = None
 
     if not creds or not creds.valid:
