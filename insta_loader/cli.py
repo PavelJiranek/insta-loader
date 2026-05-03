@@ -23,6 +23,15 @@ class VideoConfig:
     update: bool = False
 
 
+@dataclass
+class YoutubeConfig:
+    username: str
+    highlight: Optional[str] = None
+    output_dir: Optional[str] = None
+    client_secrets: Optional[str] = None
+    playlist: str = "Story Highlights"
+
+
 def parse_args(argv=None) -> Config:
     parser = argparse.ArgumentParser(
         description="Download Instagram story highlights to local folders."
