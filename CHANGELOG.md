@@ -9,6 +9,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `highlights --update` now re-downloads highlights that were previously marked `complete` when Instagram has added new slides since the last run
 - `--privacy` flag on `youtube-meta` and `youtube-upload` (choices: `unlisted`, `private`, `public`; default: `unlisted`)
 - `youtube-upload --update` flag: finds uploaded videos marked `outdated: true`, shows the list, asks for confirmation, deletes them from YouTube, and re-uploads the re-encoded versions
 - `youtube-upload` now detects videos with no metadata and prompts to run `youtube-meta` automatically before uploading
