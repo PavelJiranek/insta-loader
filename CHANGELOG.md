@@ -19,6 +19,8 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Fixed
 
 - **ffmpeg error on video clips with no audio track**: the concat filtergraph referenced `[N:a:0]` for every clip, causing an `Invalid argument` error when a video slide had no audio stream; `_normalize_slide` now probes each video for an audio stream first and adds a silent `anullsrc` track when none is found
+- **ffmpeg SAR mismatch crashing concat**: clips sourced from photos with a non-square sample aspect ratio (e.g. `47120:47029` from an ICC-profiled image) caused `Input link parameters do not match` in the concat filter; `setsar=1:1` is now applied in the VF filter chain so all clips are normalised before concatenation
+- **Partial output file left on ffmpeg failure**: a failed encode now removes the incomplete MP4 so the next run re-encodes cleanly instead of seeing a stale file
 
 ### Changed
 
