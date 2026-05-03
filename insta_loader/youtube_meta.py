@@ -203,7 +203,7 @@ def _build_tags(place_name: str, country_codes: list) -> list:
         if iso:
             country_codes = [iso]
 
-    tags = [place_name]
+    tags = [place_name] if place_name.strip() else []
 
     for iso in country_codes:
         if iso == "US":
