@@ -34,7 +34,8 @@ def _print_setup_instructions(secrets_path: Path) -> None:
     print("   3. APIs & Services → Credentials → Create Credentials → OAuth client ID")
     print("      → 'Which API?' select YouTube Data API v3 → choose 'User data' (not Public data)")
     print("      → App name: anything → your email as support/developer contact")
-    print("      → Scopes: skip (Next) → OAuth client type: Desktop app → Create")
+    print("      → Scopes: skip (Next) → OAuth client type: Desktop app → Create
+      → OAuth consent screen → Test users → Add users → add your Google account email")
     print("   4. Download the JSON and save as:")
     print(f"      {secrets_path}")
 
