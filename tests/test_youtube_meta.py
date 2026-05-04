@@ -1,5 +1,48 @@
 from insta_loader.cli import YoutubeConfig
-from insta_loader.youtube_meta import _decode_flags, _parse_title
+from insta_loader.youtube_meta import _decode_flags, _parse_title, _first_slide_date, _resolve_location
+
+
+def test_first_slide_date_returns_first_non_failed():
+    slides = [
+        {"status": "failed", "date_utc": "2019-01-01T00:00:00Z"},
+        {"status": "downloaded", "date_utc": "2019-02-15T10:30:00Z"},
+        {"status": "downloaded", "date_utc": "2019-02-20T00:00:00Z"},
+    ]
+    assert _first_slide_date(slides) == "2019-02-15"
+
+
+def test_first_slide_date_returns_none_when_all_failed():
+    slides = [{"status": "failed", "date_utc": "2019-01-01T00:00:00Z"}]
+    assert _first_slide_date(slides) is None
+
+
+def test_first_slide_date_returns_none_for_empty():
+    assert _first_slide_date([]) is None
+
+
+def test_resolve_location_city_lookup():
+    result = _resolve_location("Prague", [])
+    assert result is not None
+    assert abs(result["latitude"] - 50.08) < 0.1
+    assert abs(result["longitude"] - 14.44) < 0.1
+
+
+def test_resolve_location_country_fallback():
+    result = _resolve_location("Bohemia", ["CZ"])
+    assert result is not None
+    assert abs(result["latitude"] - 49.82) < 0.5
+
+
+def test_resolve_location_returns_none_when_unknown():
+    result = _resolve_location("SomeUnknownPlace", [])
+    assert result is None
+
+
+def test_resolve_location_city_takes_priority_over_country():
+    # Berlin is in CITY_TO_LATLON; should use city coords, not DE centroid
+    city = _resolve_location("Berlin", ["DE"])
+    country = _resolve_location("", ["DE"])
+    assert city != country
 
 
 def test_youtube_config_defaults():

@@ -96,8 +96,16 @@ def _upload_video(youtube, meta: dict, video_path: Path) -> str:
         },
         "status": {"privacyStatus": meta["youtube"]["privacy_status"]},
     }
+    recording_details = {}
+    if meta.get("recording_date"):
+        recording_details["recordingDate"] = meta["recording_date"] + "T00:00:00.000Z"
+    if meta.get("location"):
+        recording_details["location"] = meta["location"]
+    if recording_details:
+        body["recordingDetails"] = recording_details
+    part = "snippet,status,recordingDetails" if recording_details else "snippet,status"
     media = MediaFileUpload(str(video_path), chunksize=10 * 1024 * 1024, resumable=True)
-    request = youtube.videos().insert(part="snippet,status", body=body, media_body=media)
+    request = youtube.videos().insert(part=part, body=body, media_body=media)
     response = None
     while response is None:
         _, response = request.next_chunk()
