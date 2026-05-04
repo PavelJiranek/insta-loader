@@ -12,6 +12,7 @@ class Config:
     highlight: Optional[str]
     login_user: Optional[str]
     update: bool = False
+    retry_failed: bool = False
 
 
 @dataclass

@@ -124,7 +124,19 @@ def run(config: Config) -> None:
         for highlight in highlights:
             items = None
 
-            if config.update:
+            if config.retry_failed:
+                folder_path = Path(base_dir) / "instagram" / organizer.sanitize_name(highlight.title)
+                meta_path = folder_path / "metadata.json"
+                if not meta_path.exists():
+                    prog.log_video_skip(f"{highlight.title} — no metadata, skipping")
+                    continue
+                existing = json.loads(meta_path.read_text())
+                failed = [s for s in existing.get("slides", []) if s.get("status") == "failed"]
+                if not failed:
+                    prog.log_video_skip(f"{highlight.title} — no failed slides, skipping")
+                    continue
+
+            elif config.update:
                 folder_path = Path(base_dir) / "instagram" / organizer.sanitize_name(highlight.title)
                 meta_path = folder_path / "metadata.json"
                 if meta_path.exists():

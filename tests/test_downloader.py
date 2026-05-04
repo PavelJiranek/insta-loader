@@ -13,8 +13,8 @@ def make_highlight(title):
     return h
 
 
-def make_config(username="natgeo", output_dir=None, highlight=None, login_user=None, update=False):
-    return Config(username=username, output_dir=output_dir, highlight=highlight, login_user=login_user, update=update)
+def make_config(username="natgeo", output_dir=None, highlight=None, login_user=None, update=False, retry_failed=False):
+    return Config(username=username, output_dir=output_dir, highlight=highlight, login_user=login_user, update=update, retry_failed=retry_failed)
 
 
 def make_mock_item(is_video=False):
@@ -392,6 +392,72 @@ def test_update_processes_highlight_with_no_metadata(mock_il, mock_prog, mock_ge
     run(make_config(highlight="Travel", output_dir=str(tmp_path), update=True))
 
     mock_loader.download_storyitem.assert_called_once()
+
+
+# --- retry-failed mode ---
+
+@patch("insta_loader.downloader.organizer")
+@patch("insta_loader.downloader._get_all_highlights")
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+def test_retry_failed_skips_highlight_with_no_failures(mock_il, mock_prog, mock_get_all, mock_organizer, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_il.Profile.from_username.return_value = MagicMock(is_private=False)
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=2)]
+    mock_organizer.sanitize_name.return_value = "Travel"
+
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
+    slides = [{"status": "downloaded"}, {"status": "downloaded"}]
+    (folder / "metadata.json").write_text(json.dumps({"status": "complete", "slides": slides}))
+
+    run(make_config(highlight="Travel", output_dir=str(tmp_path), retry_failed=True))
+
+    mock_loader.download_storyitem.assert_not_called()
+    mock_prog.log_video_skip.assert_called_once()
+
+
+@patch("insta_loader.downloader.organizer")
+@patch("insta_loader.downloader._get_all_highlights")
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+def test_retry_failed_skips_highlight_with_no_metadata(mock_il, mock_prog, mock_get_all, mock_organizer, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_il.Profile.from_username.return_value = MagicMock(is_private=False)
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=2)]
+    mock_organizer.sanitize_name.return_value = "Travel"
+    # No metadata.json at all
+
+    run(make_config(highlight="Travel", output_dir=str(tmp_path), retry_failed=True))
+
+    mock_loader.download_storyitem.assert_not_called()
+    mock_prog.log_video_skip.assert_called_once()
+
+
+@patch("insta_loader.downloader.organizer")
+@patch("insta_loader.downloader._get_all_highlights")
+@patch("insta_loader.downloader.prog")
+@patch("insta_loader.downloader.instaloader")
+def test_retry_failed_processes_highlight_with_failed_slides(mock_il, mock_prog, mock_get_all, mock_organizer, tmp_path):
+    mock_loader = MagicMock()
+    mock_il.Instaloader.return_value = mock_loader
+    mock_il.Profile.from_username.return_value = MagicMock(is_private=False)
+    mock_get_all.return_value = [make_mock_highlight("Travel", num_items=2)]
+    mock_organizer.sanitize_name.return_value = "Travel"
+    mock_organizer.highlight_dir.return_value = tmp_path
+    mock_organizer.slide_filename.return_value = "Travel_01"
+    mock_organizer.slide_exists.return_value = False
+
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
+    slides = [{"status": "downloaded"}, {"status": "failed"}]
+    (folder / "metadata.json").write_text(json.dumps({"status": "partial", "slides": slides}))
+
+    run(make_config(highlight="Travel", output_dir=str(tmp_path), retry_failed=True))
+
+    assert mock_loader.download_storyitem.call_count == 2
 
 
 # --- _resolve_highlight ---

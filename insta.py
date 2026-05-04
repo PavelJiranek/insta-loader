@@ -24,6 +24,7 @@ def main() -> None:
     hl.add_argument("--highlight", help="Partial name match — download only this highlight")
     hl.add_argument("--output-dir", dest="output_dir", help="Save to this directory instead of output/<username>/")
     hl.add_argument("--update", action="store_true", help="Skip highlights already marked complete — only download new or partial ones")
+    hl.add_argument("--retry-failed", dest="retry_failed", action="store_true", help="Only retry highlights that have failed slides — skips complete and partial-without-failures")
     hl.add_argument(
         "--login-user",
         dest="login_user",
@@ -76,6 +77,7 @@ def main() -> None:
             highlight=args.highlight,
             login_user=args.login_user,
             update=args.update,
+            retry_failed=args.retry_failed,
         ))
 
     elif args.command == "videos":
