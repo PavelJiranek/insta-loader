@@ -65,7 +65,7 @@ def main() -> None:
         sys.exit(0)
 
     if args.command == "highlights":
-        if not args.highlight and not args.update:
+        if not args.highlight and not args.update and not args.retry_failed:
             print(f"⚠  This will download all highlights for @{args.username}.")
             answer = input("Continue? [y/N]: ").strip().lower()
             if answer != "y":
