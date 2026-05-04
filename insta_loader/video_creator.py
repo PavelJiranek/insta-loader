@@ -27,7 +27,7 @@ def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
     for slide in meta.get("slides", []):
         if slide.get("status") == "failed":
             continue
-        matches = _glob.glob(str(highlight_dir / f"{slide['filename']}_*"))
+        matches = [m for m in _glob.glob(str(highlight_dir / f"{slide['filename']}_*")) if not m.endswith(".temp")]
         if not matches:
             continue
         result.append({

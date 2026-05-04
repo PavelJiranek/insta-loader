@@ -28,7 +28,10 @@ def slide_filename(highlight_title: str, idx: int) -> str:
 
 def slide_exists(folder: Path, highlight_title: str, idx: int) -> bool:
     stem = slide_filename(highlight_title, idx)
-    return len(glob.glob(str(folder / f"{stem}_*"))) > 0
+    return any(
+        not f.endswith(".temp")
+        for f in glob.glob(str(folder / f"{stem}_*"))
+    )
 
 
 def write_metadata(
