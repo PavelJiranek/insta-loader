@@ -10,6 +10,7 @@ from typing import Optional
 
 import imageio_ffmpeg
 from rich import print as rprint
+from send2trash import send2trash
 
 from insta_loader import progress as prog
 from insta_loader.cli import VideoConfig
@@ -55,7 +56,7 @@ def _resolve_conflict(output_path: Path) -> Optional[Path]:
     ).strip().lower()
 
     if answer == "o":
-        output_path.unlink()
+        send2trash(str(output_path))
         return output_path
     elif answer == "n":
         return candidate
@@ -235,7 +236,7 @@ def run(config: VideoConfig) -> None:
                 rprint(f"[green]✓[/green]  {title} — up to date")
                 continue
             if output_path.exists():
-                output_path.unlink()
+                send2trash(str(output_path))
             resolved = output_path
         else:
             resolved = _resolve_conflict(output_path)
@@ -275,6 +276,7 @@ def run(config: VideoConfig) -> None:
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")
-                output_path.unlink(missing_ok=True)
+                if output_path.exists():
+                    send2trash(str(output_path))
             finally:
                 shutil.rmtree(tmp_dir, ignore_errors=True)

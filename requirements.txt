@@ -2,6 +2,7 @@ instaloader>=4.10
 rich>=13.0
 python-dotenv>=1.0
 imageio-ffmpeg>=0.4
+send2trash>=1.8
 pytest>=7.0
 pycountry>=22.0
 google-api-python-client>=2.0
