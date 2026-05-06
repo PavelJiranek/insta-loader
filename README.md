@@ -2,7 +2,7 @@
 
 A command-line tool to back up your own story highlights from Instagram, assemble them into MP4 videos, and optionally upload them to YouTube.
 
-> ☕ If this saves you time, consider supporting the project — Buy Me a Coffee link coming soon.
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support-yellow?logo=buy-me-a-coffee)](https://buymeacoffee.com/pauliejr)
 
 ---
 
@@ -12,6 +12,8 @@ A command-line tool to back up your own story highlights from Instagram, assembl
 - **Assembles** downloaded slides (images + videos) into a single MP4 per highlight using bundled ffmpeg
 - **Uploads** assembled videos to YouTube with auto-generated titles, descriptions, tags, recording date, and location
 - Keeps everything in a clean local folder structure you own
+
+![insta-loader terminal](docs/screenshot.png)
 
 ---
 
