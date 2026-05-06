@@ -8,11 +8,15 @@ from typing import Union
 
 def sanitize_name(title: str) -> str:
     result = title.replace("/", "-")
+    # Strip control characters (including null bytes)
+    result = re.sub(r"[\x00-\x1f\x7f]", "", result)
     # Strip shell-problematic chars; keep letters, digits, emoji, accents, hyphens, dots.
     result = re.sub(r"""['"\\:*?<>|!@#$%^&()+={}\[\];,`~]""", "", result)
     result = result.replace(" ", "_")
     result = re.sub(r"_+", "_", result)  # collapse consecutive underscores
-    return result.strip("_-")
+    result = result.lstrip(".")          # prevent . and .. path traversal
+    result = result.strip("_-")
+    return result or "unnamed"
 
 
 def highlight_dir(base_dir: Union[str, Path], highlight_title: str) -> Path:

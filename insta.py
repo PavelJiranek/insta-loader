@@ -1,9 +1,18 @@
 import argparse
 import os
+import re
 import sys
 
 from dotenv import load_dotenv
 load_dotenv()
+
+
+def _validate_username(username: str) -> str:
+    """Instagram usernames: letters, digits, dots, underscores, max 30 chars."""
+    if not re.fullmatch(r"[a-zA-Z0-9._]{1,30}", username):
+        print(f"✗  Invalid username '{username}'. Only letters, digits, dots and underscores allowed (max 30 chars).")
+        sys.exit(1)
+    return username
 
 from insta_loader.cli import Config, VideoConfig, YoutubeConfig
 from insta_loader.downloader import run as run_highlights
@@ -63,6 +72,8 @@ def main() -> None:
     if args.command is None:
         parser.print_help()
         sys.exit(0)
+
+    _validate_username(args.username)
 
     if args.command == "highlights":
         if not args.highlight and not args.update and not args.retry_failed:

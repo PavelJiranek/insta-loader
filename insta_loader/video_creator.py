@@ -28,7 +28,8 @@ def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
     for slide in meta.get("slides", []):
         if slide.get("status") == "failed":
             continue
-        matches = [m for m in _glob.glob(str(highlight_dir / f"{slide['filename']}_*")) if not m.endswith(".temp")]
+        safe_filename = Path(slide["filename"]).name  # strip any directory components
+        matches = [m for m in _glob.glob(str(highlight_dir / f"{safe_filename}_*")) if not m.endswith(".temp")]
         if not matches:
             continue
         result.append({
@@ -208,7 +209,8 @@ def run(config: VideoConfig) -> None:
         sys.exit(1)
 
     highlight_dirs = sorted(
-        d for d in instagram_dir.iterdir() if d.is_dir() and (d / "metadata.json").exists()
+        d for d in instagram_dir.iterdir()
+        if d.is_dir() and not d.is_symlink() and (d / "metadata.json").exists()
     )
     if not highlight_dirs:
         print(f"✗  No downloaded highlights found at {instagram_dir}")

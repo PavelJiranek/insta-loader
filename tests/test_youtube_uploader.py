@@ -198,7 +198,9 @@ def test_run_skips_already_uploaded(tmp_path, capsys):
 
 def test_run_skips_missing_video(tmp_path, capsys):
     youtube_dir = tmp_path / "youtube"
-    _make_meta_file(youtube_dir, "Travel", video_path="/nonexistent/Travel.mp4")
+    # Use a path inside the output dir that simply doesn't exist on disk
+    missing_video = str(tmp_path / "videos" / "Travel.mp4")
+    _make_meta_file(youtube_dir, "Travel", video_path=missing_video)
     secrets = tmp_path / "secrets.json"
     secrets.touch()
 

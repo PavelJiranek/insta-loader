@@ -13,7 +13,7 @@ from rich import print as rprint
 
 from insta_loader.cli import YoutubeConfig
 
-SCOPES = ["https://www.googleapis.com/auth/youtube"]
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
 TOKEN_PATH = Path.home() / ".config" / "instaloader" / "youtube_token.json"
 
 
@@ -63,6 +63,7 @@ def _get_credentials(client_secrets_path: Path) -> Credentials:
             creds = flow.run_local_server(port=0)
         TOKEN_PATH.parent.mkdir(parents=True, exist_ok=True)
         TOKEN_PATH.write_text(creds.to_json())
+        TOKEN_PATH.chmod(0o600)
 
     return creds
 
@@ -234,7 +235,10 @@ def run(config: YoutubeConfig) -> None:
             rprint(f"[green]✓[/green]  {prefix} {title} — already uploaded")
             continue
 
-        video_path = Path(meta["video_path"])
+        video_path = Path(meta["video_path"]).resolve()
+        if not str(video_path).startswith(str(base.resolve())):
+            rprint(f"[red]✗  {prefix} {title} — video_path escapes output directory, skipping[/red]")
+            continue
         if not video_path.exists():
             rprint(f"[yellow]✗  {prefix} {title} — video not found at {video_path}[/yellow]")
             continue
