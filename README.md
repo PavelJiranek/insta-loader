@@ -1,130 +1,203 @@
 # insta-loader
 
-Download Instagram story highlight reels to organized local folders.
+A command-line tool to back up your own story highlights from Instagram, assemble them into MP4 videos, and optionally upload them to YouTube.
+
+> ☕ If this saves you time, consider supporting the project — Buy Me a Coffee link coming soon.
+
+---
+
+## What it does
+
+- **Downloads** story highlights from public Instagram accounts, with resume support
+- **Assembles** downloaded slides (images + videos) into a single MP4 per highlight using bundled ffmpeg
+- **Uploads** assembled videos to YouTube with auto-generated titles, descriptions, tags, recording date, and location
+- Keeps everything in a clean local folder structure you own
+
+---
 
 ## Requirements
 
 - Python 3.9+
+- No system ffmpeg required — bundled via `imageio-ffmpeg`
 
 ```bash
 pip install -r requirements.txt
 ```
 
+---
+
 ## Setup
 
-Copy `.env.template` to `.env` and fill in your Instagram username:
+Create a `.env` file in the project root:
 
-```bash
-cp .env.template .env
+```
+INSTA_LOGIN_USER=your_instagram_username
 ```
 
-On first run you will be prompted for your Instagram password. The session is saved to `~/.config/instaloader/` and reused automatically on subsequent runs.
+On first run you will be prompted for your password. The session is saved to `~/.config/instaloader/` and reused on subsequent runs.
+
+---
+
+## Output structure
+
+```
+output/<username>/
+  instagram/          <- downloaded highlight folders
+    Travel/
+      metadata.json
+      Travel_01_20230415_143200.mp4
+      Travel_02_20230415_143500.jpg
+    summary.json
+  videos/             <- assembled MP4s
+    Travel.mp4
+  youtube/            <- YouTube metadata per highlight
+    Travel.json
+```
+
+---
 
 ## Commands
 
-All commands are available through the unified `insta.py` entry point. Run `python insta.py --help` for a full list or `python insta.py <command> --help` for per-command help.
-
-The legacy `highlights.py` and `summary.py` entry points still work unchanged.
+Run `python3 insta.py --help` or `python3 insta.py <command> --help` for the full reference.
 
 ---
 
-### `insta.py highlights` — download highlights
+### `highlights` — download story highlights
 
-```
-python insta.py highlights <username> [options]
+```bash
+python3 insta.py highlights <username> [options]
 ```
 
 | Option | Description |
 |---|---|
-| `--highlight NAME` | Download only this highlight (partial name match, case-insensitive). Omit to download all (asks for confirmation). |
-| `--output-dir DIR` | Save to this directory instead of `output/<username>/`. |
-| `--login-user USER` | Instagram account to authenticate as. Defaults to `INSTA_LOGIN_USER` from `.env`. |
+| `--highlight NAME` | Download only this highlight (partial name, case-insensitive) |
+| `--update` | Skip highlights already marked complete; re-download if the source has new slides |
+| `--retry-failed` | Only retry highlights that have failed slides |
+| `--login-user USER` | Account to authenticate as (or set `INSTA_LOGIN_USER` in `.env`) |
+| `--output-dir DIR` | Override default output path |
 
 ```bash
-# Download all highlights (asks for confirmation)
-python insta.py highlights natgeo
+# Download all (asks for confirmation)
+python3 insta.py highlights natgeo
 
-# Partial name match — picks from a list if multiple match
-python insta.py highlights natgeo --highlight "travel"
+# Only new or incomplete highlights
+python3 insta.py highlights natgeo --update
 
-# Specific highlight, custom output dir, explicit login user
-python insta.py highlights natgeo --highlight "Travel" --output-dir ~/Desktop/insta --login-user myaccount
+# Re-try previously failed slides only
+python3 insta.py highlights natgeo --retry-failed
+
+# Single highlight by partial name
+python3 insta.py highlights natgeo --highlight "travel"
 ```
-
-After each run a `summary.json` is written automatically to `output/<username>/`.
 
 ---
 
-### `insta.py videos` — create highlight videos
+### `videos` — assemble highlights into MP4s
 
-Assembles downloaded slides for a user into one MP4 per highlight. Images are shown for 15 seconds; videos play at full duration with audio.
-
-```
-python insta.py videos <username> [options]
+```bash
+python3 insta.py videos <username> [options]
 ```
 
 | Option | Description |
 |---|---|
-| `--highlight NAME` | Create video only for this highlight (partial name match, case-insensitive). Omit to process all. |
-| `--output-dir DIR` | Base directory (default: `output/<username>/`). |
+| `--highlight NAME` | Process only this highlight |
+| `--update` | Re-encode only highlights newer than their existing video |
+| `--image-duration N` | Seconds each image slide is shown (default: 10) |
+| `--output-dir DIR` | Override base directory |
 
 ```bash
-# Create videos for all downloaded highlights
-python insta.py videos natgeo
-
-# Create video for one highlight
-python insta.py videos natgeo --highlight "travel"
+python3 insta.py videos natgeo
+python3 insta.py videos natgeo --update
 ```
 
-Videos are saved to `output/<username>/videos/<HighlightName>.mp4`. If a video already exists you will be prompted to overwrite, skip, or save as a new file.
-
-ffmpeg is bundled via `imageio-ffmpeg` — no separate install required.
+Videos are saved to `output/<username>/videos/`. Failed encodes are moved to Trash, not permanently deleted.
 
 ---
 
-### `insta.py summary` — regenerate summary
+### `youtube-meta` — generate YouTube metadata
 
-Reads all `metadata.json` files on disk and writes `output/<username>/summary.json`. Useful if you want to refresh the summary without re-downloading.
+Generates a JSON file per highlight with title, description, tags, recording date, and location.
 
-```
-python insta.py summary <username> [options]
+```bash
+python3 insta.py youtube-meta <username> [options]
 ```
 
 | Option | Description |
 |---|---|
-| `--output-dir DIR` | Read from this directory instead of `output/<username>/`. |
+| `--highlight NAME` | Process only this highlight |
+| `--privacy STATUS` | `unlisted` (default), `private`, or `public` |
 
-```bash
-python insta.py summary natgeo
-```
+Titles and tags are auto-generated from folder names — flag emoji detection, camelCase splitting, part numbers, date ranges, country/continent tags.
 
 ---
 
-## Output
+### `youtube-upload` — upload to YouTube
 
-Files are saved to `output/<username>/` by default (gitignored):
-
-```
-output/natgeo/
-  summary.json
-  Travel/
-    metadata.json
-    Travel_01_20230415_143200.mp4
-    Travel_02_20230415_143500.jpg
-  Summer_2024/
-    metadata.json
-    Summer_2024_01_20240701_090000.mp4
-    Summer_2024_02_20240701_090300.mp4
+```bash
+python3 insta.py youtube-upload <username> [options]
 ```
 
-Filename format: `<HighlightName>_<index>_<date>.<ext>` — newest slide is `_01`.
+| Option | Description |
+|---|---|
+| `--highlight NAME` | Upload only this highlight |
+| `--update` | Delete outdated uploads (after confirmation) and re-upload |
+| `--playlist NAME` | Playlist to add videos to (default: `Story Highlights`) |
+| `--privacy STATUS` | `unlisted` (default), `private`, or `public` |
+| `--client-secrets PATH` | Path to OAuth secrets JSON |
 
-## Resume
+**First-time YouTube setup:**
 
-Downloads are **idempotent** — re-running the same command skips already-downloaded slides and picks up any new or failed ones automatically.
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project → APIs & Services → Enable **YouTube Data API v3**
+3. Credentials → Create OAuth client ID → **User data** (not Public data) → Desktop app
+4. OAuth consent screen → Test users → add your Google account email
+5. Download the JSON and save to `~/.config/instaloader/youtube_client_secrets.json`
+
+Token is cached at `~/.config/instaloader/youtube_token.json` after first login.
+
+---
+
+### `summary` — regenerate summary
+
+```bash
+python3 insta.py summary <username>
+```
+
+Reads all `metadata.json` files on disk and rewrites `summary.json`. Useful after manual fixes.
+
+---
+
+## Typical workflow
+
+```bash
+# 1. Download new/updated highlights
+python3 insta.py highlights natgeo --update
+
+# 2. Retry any failed slides
+python3 insta.py highlights natgeo --retry-failed
+
+# 3. Assemble videos (re-encode changed ones only)
+python3 insta.py videos natgeo --update
+
+# 4. Generate YouTube metadata
+python3 insta.py youtube-meta natgeo
+
+# 5. Upload to YouTube
+python3 insta.py youtube-upload natgeo --update
+```
+
+---
 
 ## Notes
 
-- Only public Instagram accounts are supported.
-- If rate-limited, add `INSTA_SLEEP=2` to `.env` to pause 2 seconds between slides.
-- Slides that fail to download are skipped and marked `"failed"` in `metadata.json` — other slides in the highlight are unaffected.
+- Only **public** accounts are supported without login. Private accounts require `--login-user`.
+- YouTube free quota: ~6 uploads/day unverified, ~100/day after phone verification.
+- Add `INSTA_SLEEP=2` to `.env` to pause 2 seconds between slide downloads if rate-limited.
+- Partial downloads resume automatically — already-downloaded slides are never re-fetched.
+- Interrupted downloads leave `.temp` files which are ignored and safely re-downloaded.
+
+---
+
+## License
+
+[GNU General Public License v3.0](LICENSE)
