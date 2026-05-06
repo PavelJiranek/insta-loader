@@ -2,7 +2,7 @@ import json
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 
 def run(username: str, output_dir: Optional[str] = None) -> None:

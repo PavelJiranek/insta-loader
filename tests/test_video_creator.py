@@ -3,7 +3,6 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 import pytest
-import imageio_ffmpeg
 from insta_loader.cli import VideoConfig
 from insta_loader.video_creator import _collect_slides, _resolve_conflict, _normalize_slide, _FFMPEG
 

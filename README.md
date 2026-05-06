@@ -200,6 +200,46 @@ python3 insta.py youtube-upload natgeo --update
 
 ---
 
+## Architecture
+
+```mermaid
+flowchart TD
+    CLI["insta.py\n(CLI entry point)"]
+
+    CLI -->|highlights| DL["downloader.py\nFetch slides from Instagram API\nResume / retry-failed / update"]
+    CLI -->|videos| VC["video_creator.py\nAssemble slides into MP4\nvia bundled ffmpeg"]
+    CLI -->|youtube-meta| YM["youtube_meta.py\nGenerate title, description,\ntags, date, location JSON"]
+    CLI -->|youtube-upload| YU["youtube_uploader.py\nOAuth2 upload to YouTube\nPlaylist management"]
+    CLI -->|summary| SU["summarizer.py\nRebuild summary.json\nfrom metadata on disk"]
+
+    DL -->|writes| FS["output/&lt;user&gt;/instagram/\n&lt;Highlight&gt;/\n  metadata.json\n  slide_01.mp4 / .jpg"]
+    DL --> OR["organizer.py\nFolder layout &amp; naming\nSlide dedup / .temp guard"]
+    DL --> SU
+
+    VC -->|reads| FS
+    VC -->|writes| VD["output/&lt;user&gt;/videos/\n&lt;Highlight&gt;.mp4"]
+
+    YM -->|reads| FS
+    YM -->|writes| YD["output/&lt;user&gt;/youtube/\n&lt;Highlight&gt;.json"]
+
+    YU -->|reads| VD
+    YU -->|reads/updates| YD
+
+    subgraph Shared
+        CL["cli.py\nConfig / VideoConfig /\nYoutubeConfig dataclasses"]
+        PR["progress.py\nRich progress bar helpers"]
+    end
+
+    DL --- CL
+    VC --- CL
+    YM --- CL
+    YU --- CL
+    DL --- PR
+    VC --- PR
+```
+
+---
+
 ## License
 
 [GNU General Public License v3.0](LICENSE)
