@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import sys
 import time
 from pathlib import Path
@@ -12,6 +13,7 @@ from insta_loader import summarizer
 from insta_loader.cli import Config
 
 _SLEEP = float(os.environ.get("INSTA_SLEEP", "0"))
+_SLEEP_JITTER = float(os.environ.get("INSTA_SLEEP_JITTER", "0.5"))  # ± multiplier
 
 
 def _session_path(username: str) -> str:
@@ -214,7 +216,8 @@ def run(config: Config) -> None:
                 prog.advance(progress, task_id, filename)
                 prog.update_stats(progress, task_id, newly_downloaded, skipped_count, failed_count)
                 if _SLEEP:
-                    time.sleep(_SLEEP)
+                    jitter = random.uniform(-_SLEEP * _SLEEP_JITTER, _SLEEP * _SLEEP_JITTER)
+                    time.sleep(max(0.1, _SLEEP + jitter))
 
             organizer.write_metadata(folder, highlight.title, len(items), on_disk, videos, images, slides)
 

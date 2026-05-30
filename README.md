@@ -194,7 +194,7 @@ python3 insta.py youtube-upload natgeo --update
 
 - Only **public** accounts are supported without login. Private accounts require `--login-user`.
 - YouTube free quota: ~6 uploads/day unverified, ~100/day after phone verification.
-- Add `INSTA_SLEEP=2` to `.env` to pause 2 seconds between slide downloads if rate-limited.
+- Add `INSTA_SLEEP=3` to `.env` to pause ~3 seconds between slide downloads if rate-limited. The delay is randomised by ±50% by default to avoid fixed-interval detection patterns. Override the jitter with `INSTA_SLEEP_JITTER=0.3` (0 = no jitter, 1 = ±100%).
 - Partial downloads resume automatically — already-downloaded slides are never re-fetched.
 - Interrupted downloads leave `.temp` files which are ignored and safely re-downloaded.
 
