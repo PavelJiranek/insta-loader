@@ -13,7 +13,10 @@ from rich import print as rprint
 
 from insta_loader.cli import YoutubeConfig
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+SCOPES = [
+    "https://www.googleapis.com/auth/youtube.upload",   # upload, delete videos + manage playlists
+    "https://www.googleapis.com/auth/youtube.readonly",  # list playlists
+]
 TOKEN_PATH = Path.home() / ".config" / "instaloader" / "youtube_token.json"
 
 
@@ -55,8 +58,13 @@ def _get_credentials(client_secrets_path: Path) -> Credentials:
 
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+            except Exception:
+                print("⚠  Token refresh failed — re-authenticating...")
+                TOKEN_PATH.unlink(missing_ok=True)
+                creds = None
+        if not creds or not creds.valid:
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(client_secrets_path), SCOPES
             )
