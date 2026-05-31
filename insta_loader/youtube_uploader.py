@@ -13,10 +13,7 @@ from rich import print as rprint
 
 from insta_loader.cli import YoutubeConfig
 
-SCOPES = [
-    "https://www.googleapis.com/auth/youtube.upload",   # upload, delete videos + manage playlists
-    "https://www.googleapis.com/auth/youtube.readonly",  # list playlists
-]
+SCOPES = ["https://www.googleapis.com/auth/youtube"]
 TOKEN_PATH = Path.home() / ".config" / "instaloader" / "youtube_token.json"
 
 
