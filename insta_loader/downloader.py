@@ -105,12 +105,18 @@ def run(config: Config) -> None:
         print(f"✗  @{config.username} not found.")
         sys.exit(1)
 
-    if profile.is_private:
-        print(
-            f"✗  @{config.username} is a private account. "
-            "Only public accounts are supported in V1."
-        )
-        sys.exit(1)
+    if config.login_user and config.login_user.lower() == config.username.lower():
+        pass  # downloading own account — skip private check
+    else:
+        try:
+            if profile.is_private:
+                print(
+                    f"✗  @{config.username} is a private account. "
+                    "Use --login-user to authenticate."
+                )
+                sys.exit(1)
+        except Exception:
+            pass  # API rejected the check — proceed anyway
 
     all_highlights = _get_all_highlights(L, profile)
 
