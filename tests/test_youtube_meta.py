@@ -355,3 +355,29 @@ def test_build_youtube_meta_portrait_unaffected_by_landscape_false():
     assert "16:9" not in meta["youtube"]["title"]
     assert "videos_landscape" not in meta["video_path"]
     assert "videos" in meta["video_path"]
+
+
+def test_run_landscape_reads_videos_landscape_and_writes_youtube_landscape(tmp_path):
+    _make_highlight(tmp_path, "Travel")
+    videos_dir = tmp_path / "videos_landscape"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+
+    run_meta(YoutubeConfig(username="testuser", output_dir=str(tmp_path), landscape=True))
+
+    assert (tmp_path / "youtube_landscape" / "Travel.json").exists()
+    assert not (tmp_path / "youtube" / "Travel.json").exists()
+    meta = json.loads((tmp_path / "youtube_landscape" / "Travel.json").read_text())
+    assert "16:9" in meta["youtube"]["title"]
+
+
+def test_run_landscape_skips_when_no_landscape_video(tmp_path, capsys):
+    _make_highlight(tmp_path, "Travel")
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+
+    run_meta(YoutubeConfig(username="testuser", output_dir=str(tmp_path), landscape=True))
+
+    assert not (tmp_path / "youtube_landscape").exists()
+    assert "no video" in capsys.readouterr().out.lower()

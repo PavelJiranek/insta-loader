@@ -474,8 +474,8 @@ def run(config: YoutubeConfig) -> None:
     if config.highlight:
         highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
 
-    videos_dir = base / "videos"
-    youtube_dir = base / "youtube"
+    videos_dir = base / ("videos_landscape" if config.landscape else "videos")
+    youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
 
     for hdir in highlight_dirs:
         folder_name = hdir.name
@@ -487,7 +487,7 @@ def run(config: YoutubeConfig) -> None:
 
         meta_obj = json.loads((hdir / "metadata.json").read_text(encoding="utf-8"))
         slides = meta_obj.get("slides", [])
-        meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy)
+        meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy, landscape=config.landscape)
         written = _write_meta(youtube_dir, folder_name, meta)
 
         title = meta["youtube"]["title"]
