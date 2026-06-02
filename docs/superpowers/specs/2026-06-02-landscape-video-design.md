@@ -59,6 +59,7 @@ When `config.landscape` is True:
 - Look for videos in `base / "videos_landscape"` instead of `base / "videos"`
 - Write metadata to `base / "youtube_landscape"` instead of `base / "youtube"`
 - `video_path` field in JSON: `output/<username>/videos_landscape/<name>.mp4`
+- Append `· 16:9` to the generated YouTube title, e.g. `🇮🇹 Milano · May 2026 · 16:9`
 
 ### `insta_loader/youtube_uploader.py`
 
