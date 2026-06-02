@@ -265,7 +265,8 @@ def run(config: VideoConfig) -> None:
     if config.highlight:
         highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
 
-    videos_dir = base / "videos"
+    videos_dir_name = "videos_landscape" if config.landscape else "videos"
+    videos_dir = base / videos_dir_name
     videos_dir.mkdir(exist_ok=True)
 
     # Resolve all conflicts before starting the progress bar so that
@@ -310,6 +311,7 @@ def run(config: VideoConfig) -> None:
                     clip = _normalize_slide(
                         slide["path"], slide["index"], tmp_dir, slide["type"] == "video",
                         config.image_duration,
+                        landscape=config.landscape,
                     )
                     clips.append(clip)
                     prog.advance(progress, task_id, slide["path"].name)
@@ -320,7 +322,7 @@ def run(config: VideoConfig) -> None:
                 progress.advance(overall)
                 print(f"✓  {output_path.name} — {len(slides)} slides, {m}m {s:02d}s")
                 if config.update:
-                    _mark_youtube_outdated(base, hdir.name)
+                    _mark_youtube_outdated(base, hdir.name, landscape=config.landscape)
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")

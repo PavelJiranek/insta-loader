@@ -525,3 +525,25 @@ def test_mark_youtube_outdated_portrait_unchanged_by_landscape_param(tmp_path):
 
     result = json.loads((yt_dir / "Travel.json").read_text())
     assert result["outdated"] is False
+
+
+def test_run_landscape_writes_to_videos_landscape_dir(tmp_path):
+    instagram_dir = tmp_path / "instagram" / "Travel"
+    instagram_dir.mkdir(parents=True)
+    slides = [{"index": 1, "filename": "Travel_01", "type": "image",
+               "date_utc": "2026-01-01T00:00:00Z", "status": "downloaded"}]
+    (instagram_dir / "metadata.json").write_text(json.dumps({
+        "highlight_title": "Travel", "slides": slides
+    }))
+    (instagram_dir / "Travel_01_20260101_000000.jpg").touch()
+
+    with patch("insta_loader.video_creator._normalize_slide") as mock_norm, \
+         patch("insta_loader.video_creator._concat_clips"):
+        mock_norm.return_value = tmp_path / "clip_001.mp4"
+        (tmp_path / "clip_001.mp4").touch()
+        run(VideoConfig(username="testuser", output_dir=str(tmp_path), landscape=True))
+
+    assert (tmp_path / "videos_landscape").exists()
+    mock_norm.assert_called_once()
+    call_kwargs = mock_norm.call_args[1]
+    assert call_kwargs.get("landscape") is True
