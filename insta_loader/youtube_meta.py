@@ -423,7 +423,8 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: 
     description = f"{desc_main}\n\n@{username}"
 
     video_subdir = "videos_landscape" if landscape else "videos"
-    video_path = str(Path("output") / username / video_subdir / f"{folder_name}.mp4")
+    video_stem = f"{folder_name}_landscape" if landscape else folder_name
+    video_path = str(Path("output") / username / video_subdir / f"{video_stem}.mp4")
     return {
         "highlight_folder": folder_name,
         "video_path": video_path,

@@ -279,7 +279,8 @@ def run(config: VideoConfig) -> None:
         if not slides:
             prog.log_video_skip(f"{title} — no valid slides, skipping")
             continue
-        output_path = videos_dir / f"{hdir.name}.mp4"
+        stem = f"{hdir.name}_landscape" if config.landscape else hdir.name
+        output_path = videos_dir / f"{stem}.mp4"
         if config.update:
             if not _needs_update(hdir, output_path):
                 rprint(f"[green]✓[/green]  {title} — up to date")
