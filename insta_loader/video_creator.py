@@ -105,50 +105,96 @@ _COLOR_FLAGS = [
     "-color_trc", "bt709",
 ]
 
+_VF_LANDSCAPE = (
+    "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,"
+    "crop=1920:1080,gblur=sigma=25,"
+    "colorchannelmixer=rr=0.4:gg=0.4:bb=0.4[bg];"
+    "[0:v]scale=-1:1080[fg];"
+    "[bg][fg]overlay=(W-w)/2:(H-h)/2[out]"
+)
+
 
 def _has_audio(path: Path) -> bool:
     result = subprocess.run([_FFMPEG, "-i", str(path)], capture_output=True)
     return b"Audio:" in result.stderr
 
 
-def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10) -> Path:
+def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10, landscape: bool = False) -> Path:
     out = tmp_dir / f"clip_{index:03d}.mp4"
-    if is_video:
-        if _has_audio(slide_path):
-            cmd = [
-                _FFMPEG, "-i", str(slide_path),
-                "-vf", _VF,
-                "-r", "30",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
-                "-c:a", "aac", "-ar", "44100",
-                "-y", str(out),
-            ]
+    if landscape:
+        if is_video:
+            if _has_audio(slide_path):
+                cmd = [
+                    _FFMPEG, "-i", str(slide_path),
+                    "-filter_complex", _VF_LANDSCAPE,
+                    "-map", "[out]", "-map", "0:a",
+                    "-r", "30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    "-c:a", "aac", "-ar", "44100",
+                    "-y", str(out),
+                ]
+            else:
+                cmd = [
+                    _FFMPEG,
+                    "-i", str(slide_path),
+                    "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+                    "-filter_complex", _VF_LANDSCAPE,
+                    "-map", "[out]", "-map", "1:a",
+                    "-r", "30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    "-c:a", "aac", "-ar", "44100",
+                    "-shortest",
+                    "-y", str(out),
+                ]
         else:
-            # Video has no audio track — add a silent one so the concat filter works
             cmd = [
                 _FFMPEG,
-                "-i", str(slide_path),
+                "-loop", "1", "-t", str(image_duration), "-i", str(slide_path),
                 "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-                "-filter_complex", f"[0:v]{_VF}[vout]",
-                "-map", "[vout]", "-map", "1:a",
+                "-filter_complex", _VF_LANDSCAPE,
+                "-map", "[out]", "-map", "1:a",
                 "-r", "30",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
-                "-c:a", "aac", "-ar", "44100",
+                "-c:a", "aac",
                 "-shortest",
                 "-y", str(out),
             ]
     else:
-        cmd = [
-            _FFMPEG,
-            "-loop", "1", "-t", str(image_duration), "-i", str(slide_path),
-            "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
-            "-vf", _VF,
-            "-r", "30",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
-            "-c:a", "aac",
-            "-shortest",
-            "-y", str(out),
-        ]
+        if is_video:
+            if _has_audio(slide_path):
+                cmd = [
+                    _FFMPEG, "-i", str(slide_path),
+                    "-vf", _VF,
+                    "-r", "30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    "-c:a", "aac", "-ar", "44100",
+                    "-y", str(out),
+                ]
+            else:
+                cmd = [
+                    _FFMPEG,
+                    "-i", str(slide_path),
+                    "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+                    "-filter_complex", f"[0:v]{_VF}[vout]",
+                    "-map", "[vout]", "-map", "1:a",
+                    "-r", "30",
+                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    "-c:a", "aac", "-ar", "44100",
+                    "-shortest",
+                    "-y", str(out),
+                ]
+        else:
+            cmd = [
+                _FFMPEG,
+                "-loop", "1", "-t", str(image_duration), "-i", str(slide_path),
+                "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
+                "-vf", _VF,
+                "-r", "30",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                "-c:a", "aac",
+                "-shortest",
+                "-y", str(out),
+            ]
     subprocess.run(cmd, check=True, capture_output=True)
     return out
 

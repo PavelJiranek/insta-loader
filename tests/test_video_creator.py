@@ -462,3 +462,42 @@ def test_run_update_encodes_highlight_with_no_video(
 def test_video_config_landscape_defaults_false():
     c = VideoConfig(username="testuser")
     assert c.landscape is False
+
+
+def test_normalize_slide_landscape_video_uses_filter_complex(tmp_path):
+    slide = tmp_path / "clip.mp4"
+    slide.touch()
+    with patch("insta_loader.video_creator.subprocess.run") as mock_run, \
+         patch("insta_loader.video_creator._has_audio", return_value=True):
+        mock_run.return_value = MagicMock(returncode=0)
+        _normalize_slide(slide, 1, tmp_path, is_video=True, landscape=True)
+    cmd = mock_run.call_args[0][0]
+    assert "-filter_complex" in cmd
+    full_cmd = " ".join(cmd)
+    assert "overlay" in full_cmd
+    assert "gblur" in full_cmd
+    assert "-vf" not in cmd
+
+
+def test_normalize_slide_landscape_image_uses_filter_complex(tmp_path):
+    slide = tmp_path / "slide.jpg"
+    slide.touch()
+    with patch("insta_loader.video_creator.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        _normalize_slide(slide, 1, tmp_path, is_video=False, landscape=True)
+    cmd = mock_run.call_args[0][0]
+    assert "-filter_complex" in cmd
+    full_cmd = " ".join(cmd)
+    assert "overlay" in full_cmd
+    assert "gblur" in full_cmd
+
+
+def test_normalize_slide_portrait_unchanged(tmp_path):
+    slide = tmp_path / "slide.jpg"
+    slide.touch()
+    with patch("insta_loader.video_creator.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        _normalize_slide(slide, 1, tmp_path, is_video=False, landscape=False)
+    cmd = mock_run.call_args[0][0]
+    assert "-vf" in cmd
+    assert "overlay" not in " ".join(cmd)
