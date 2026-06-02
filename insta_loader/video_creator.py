@@ -116,7 +116,7 @@ _VF_LANDSCAPE = (
     "crop=1920:1080,gblur=sigma=25,"
     "colorchannelmixer=rr=0.4:gg=0.4:bb=0.4[bg];"
     "[0:v]scale=-1:1080[fg];"
-    "[bg][fg]overlay=(W-w)/2:(H-h)/2[out]"
+    "[bg][fg]overlay=(W-w)/2:(H-h)/2,setsar=1:1[out]"
 )
 
 
