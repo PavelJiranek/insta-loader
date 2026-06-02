@@ -138,9 +138,8 @@ def _mark_uploaded(meta_path: Path, youtube_id: str) -> None:
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _check_missing_metadata(base: Path, youtube_dir: Path) -> list:
+def _check_missing_metadata(videos_dir: Path, youtube_dir: Path) -> list:
     """Return folder names that have a video but no YouTube metadata JSON."""
-    videos_dir = base / "videos"
     if not videos_dir.exists():
         return []
     return sorted(
@@ -187,9 +186,10 @@ def _delete_outdated(youtube, meta_files: list) -> None:
 def run(config: YoutubeConfig) -> None:
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
+    videos_dir = base / ("videos_landscape" if config.landscape else "videos")
 
     # Offer to auto-generate metadata for videos that have none yet
-    missing = _check_missing_metadata(base, youtube_dir)
+    missing = _check_missing_metadata(videos_dir, youtube_dir)
     if missing:
         rprint(f"[yellow]ℹ  {len(missing)} video(s) have no YouTube metadata:[/yellow]")
         for name in missing:
@@ -249,7 +249,7 @@ def run(config: YoutubeConfig) -> None:
             continue
 
         if playlist_id is None:
-            playlist_name = f"{config.playlist} 16:9" if config.landscape else config.playlist
+            playlist_name = f"{config.playlist} · 16:9" if config.landscape else config.playlist
             playlist_id = _get_or_create_playlist(youtube, playlist_name, config.privacy)
 
         rprint(f"[cyan]↑  {prefix} {title} — uploading…[/cyan]")

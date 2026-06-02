@@ -326,7 +326,7 @@ def test_check_missing_metadata_returns_videos_without_json(tmp_path):
     (videos_dir / "Summer.mp4").touch()
     (youtube_dir / "Travel.json").write_text("{}")
 
-    missing = _check_missing_metadata(tmp_path, youtube_dir)
+    missing = _check_missing_metadata(videos_dir, youtube_dir)
     assert missing == ["Summer"]
 
 
@@ -338,12 +338,12 @@ def test_check_missing_metadata_empty_when_all_present(tmp_path):
     (videos_dir / "Travel.mp4").touch()
     (youtube_dir / "Travel.json").write_text("{}")
 
-    assert _check_missing_metadata(tmp_path, youtube_dir) == []
+    assert _check_missing_metadata(videos_dir, youtube_dir) == []
 
 
 def test_check_missing_metadata_no_videos_dir(tmp_path):
     youtube_dir = tmp_path / "youtube"
-    assert _check_missing_metadata(tmp_path, youtube_dir) == []
+    assert _check_missing_metadata(tmp_path / "videos", youtube_dir) == []
 
 
 def test_delete_outdated_skips_when_none(tmp_path, capsys):
