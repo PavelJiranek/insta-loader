@@ -676,9 +676,10 @@ def test_run_landscape_reads_from_youtube_landscape_dir(tmp_path, capsys):
     secrets = tmp_path / "secrets.json"
     secrets.touch()
 
+    mock_playlist = MagicMock(return_value="pl1")
     with patch("insta_loader.youtube_uploader._get_credentials"), \
          patch("insta_loader.youtube_uploader.build"), \
-         patch("insta_loader.youtube_uploader._get_or_create_playlist", return_value="pl1"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist", mock_playlist), \
          patch("insta_loader.youtube_uploader._upload_video", return_value="vid1"), \
          patch("insta_loader.youtube_uploader._add_to_playlist"), \
          patch("insta_loader.youtube_uploader._mark_uploaded"):
@@ -692,6 +693,9 @@ def test_run_landscape_reads_from_youtube_landscape_dir(tmp_path, capsys):
     # Should not exit — found the landscape dir
     out = capsys.readouterr().out
     assert "no metadata found" not in out.lower()
+    # Playlist name should be suffixed with 16:9
+    playlist_name_used = mock_playlist.call_args[0][1]
+    assert "16:9" in playlist_name_used
 
 
 def test_run_landscape_exits_when_no_landscape_dir(tmp_path):
@@ -725,6 +729,13 @@ Expected: FAIL — `run()` always uses `youtube/`.
 Replace line 183 in `insta_loader/youtube_uploader.py`:
 ```python
     youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
+```
+
+Also update the `_get_or_create_playlist` call (around line 243) to append `" 16:9"` to the playlist name when landscape:
+```python
+        if playlist_id is None:
+            playlist_name = f"{config.playlist} 16:9" if config.landscape else config.playlist
+            playlist_id = _get_or_create_playlist(youtube, playlist_name, config.privacy)
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**

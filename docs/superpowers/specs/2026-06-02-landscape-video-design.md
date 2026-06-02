@@ -66,6 +66,7 @@ When `config.landscape` is True:
 When `config.landscape` is True:
 - Read metadata from `base / "youtube_landscape"` instead of `base / "youtube"`
 - `video_path` bounds check uses `base` as before (both `videos/` and `videos_landscape/` are under `base`)
+- Playlist name gets `" 16:9"` appended: e.g. `"Story Highlights"` → `"Story Highlights 16:9"`
 
 ### `insta.py`
 
