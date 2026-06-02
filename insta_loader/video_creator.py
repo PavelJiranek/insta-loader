@@ -105,6 +105,11 @@ _COLOR_FLAGS = [
     "-color_trc", "bt709",
 ]
 
+_ENCODE_FLAGS = [
+    "-r", "30",
+    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+]
+
 _VF_LANDSCAPE = (
     "[0:v]scale=1920:1080:force_original_aspect_ratio=increase,"
     "crop=1920:1080,gblur=sigma=25,"
@@ -128,8 +133,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     _FFMPEG, "-i", str(slide_path),
                     "-filter_complex", _VF_LANDSCAPE,
                     "-map", "[out]", "-map", "0:a",
-                    "-r", "30",
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
                     "-y", str(out),
                 ]
@@ -140,8 +144,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                     "-filter_complex", _VF_LANDSCAPE,
                     "-map", "[out]", "-map", "1:a",
-                    "-r", "30",
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
                     "-shortest",
                     "-y", str(out),
@@ -153,8 +156,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                 "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                 "-filter_complex", _VF_LANDSCAPE,
                 "-map", "[out]", "-map", "1:a",
-                "-r", "30",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                *_ENCODE_FLAGS,
                 "-c:a", "aac",
                 "-shortest",
                 "-y", str(out),
@@ -165,8 +167,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                 cmd = [
                     _FFMPEG, "-i", str(slide_path),
                     "-vf", _VF,
-                    "-r", "30",
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
                     "-y", str(out),
                 ]
@@ -177,8 +178,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                     "-filter_complex", f"[0:v]{_VF}[vout]",
                     "-map", "[vout]", "-map", "1:a",
-                    "-r", "30",
-                    "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                    *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
                     "-shortest",
                     "-y", str(out),
@@ -189,8 +189,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                 "-loop", "1", "-t", str(image_duration), "-i", str(slide_path),
                 "-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=44100",
                 "-vf", _VF,
-                "-r", "30",
-                "-c:v", "libx264", "-pix_fmt", "yuv420p", *_COLOR_FLAGS,
+                *_ENCODE_FLAGS,
                 "-c:a", "aac",
                 "-shortest",
                 "-y", str(out),
