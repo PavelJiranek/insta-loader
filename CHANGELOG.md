@@ -16,6 +16,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Overall progress counter `[N/M]` prefix on each `youtube-upload` line so it's clear how many videos remain
 - Overall `[cyan]Progress` task row added to the `videos` command Rich progress bar showing N/M highlights done
 - Elapsed time baked into each video task row description when it completes (e.g. `Video: Travel (2m35s)`) — fixes the misleading `0:00:00` that Rich shows for completed tasks
+- `--landscape` flag for `videos`, `youtube-meta`, and `youtube-upload` commands — produces 16:9 MP4s with blurred+darkened portrait background, stored in `videos_landscape/` and `youtube_landscape/`, uploaded to a separate playlist suffixed with `· 16:9`
 
 ### Fixed
 
