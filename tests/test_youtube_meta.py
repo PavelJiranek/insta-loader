@@ -335,3 +335,23 @@ def test_run_filters_by_highlight_name(tmp_path):
 def test_youtube_config_landscape_defaults_false():
     c = YoutubeConfig(username="testuser")
     assert c.landscape is False
+
+
+def test_build_youtube_meta_landscape_appends_16_9_to_title():
+    slides = [_slide("2026-04-01T00:00:00Z")]
+    meta = _build_youtube_meta("Travel", slides, "testuser", landscape=True)
+    assert meta["youtube"]["title"].endswith("· 16:9")
+
+
+def test_build_youtube_meta_landscape_uses_videos_landscape_path():
+    slides = [_slide("2026-04-01T00:00:00Z")]
+    meta = _build_youtube_meta("Travel", slides, "testuser", landscape=True)
+    assert "videos_landscape" in meta["video_path"]
+
+
+def test_build_youtube_meta_portrait_unaffected_by_landscape_false():
+    slides = [_slide("2026-04-01T00:00:00Z")]
+    meta = _build_youtube_meta("Travel", slides, "testuser", landscape=False)
+    assert "16:9" not in meta["youtube"]["title"]
+    assert "videos_landscape" not in meta["video_path"]
+    assert "videos" in meta["video_path"]

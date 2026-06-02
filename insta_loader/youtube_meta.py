@@ -394,7 +394,7 @@ def _resolve_location(place_name: str, country_codes: list) -> Optional[dict]:
     return {"latitude": latlon[0], "longitude": latlon[1]}
 
 
-def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: str = "unlisted") -> dict:
+def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: str = "unlisted", landscape: bool = False) -> dict:
     country_codes = _decode_flags(folder_name)
     flag_str = _extract_flag_str(folder_name)
     place_name, part_num = _parse_title(folder_name)
@@ -412,6 +412,8 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: 
     if date_str:
         title_parts.append(f"· {date_str}")
     title = " ".join(title_parts)
+    if landscape:
+        title = f"{title} · 16:9"
 
     desc_main = f"{place_name} highlights" if place_name.strip() else "highlights"
     if part_num is not None:
@@ -420,7 +422,8 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: 
         desc_main += f" · {date_str}"
     description = f"{desc_main}\n\n@{username}"
 
-    video_path = str(Path("output") / username / "videos" / f"{folder_name}.mp4")
+    video_subdir = "videos_landscape" if landscape else "videos"
+    video_path = str(Path("output") / username / video_subdir / f"{folder_name}.mp4")
     return {
         "highlight_folder": folder_name,
         "video_path": video_path,
