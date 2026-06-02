@@ -186,7 +186,7 @@ def _delete_outdated(youtube, meta_files: list) -> None:
 
 def run(config: YoutubeConfig) -> None:
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
-    youtube_dir = base / "youtube"
+    youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
 
     # Offer to auto-generate metadata for videos that have none yet
     missing = _check_missing_metadata(base, youtube_dir)
@@ -249,7 +249,8 @@ def run(config: YoutubeConfig) -> None:
             continue
 
         if playlist_id is None:
-            playlist_id = _get_or_create_playlist(youtube, config.playlist, config.privacy)
+            playlist_name = f"{config.playlist} 16:9" if config.landscape else config.playlist
+            playlist_id = _get_or_create_playlist(youtube, playlist_name, config.privacy)
 
         rprint(f"[cyan]↑  {prefix} {title} — uploading…[/cyan]")
         try:

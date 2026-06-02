@@ -432,3 +432,51 @@ def test_run_update_resets_outdated_then_uploads(tmp_path):
     updated = json.loads(meta_path.read_text())
     assert updated["uploaded"] is True
     assert updated["youtube_id"] == "new_id"
+
+
+def test_run_landscape_reads_from_youtube_landscape_dir(tmp_path, capsys):
+    youtube_dir = tmp_path / "youtube_landscape"
+    youtube_dir.mkdir()
+    video_path = str(tmp_path / "videos_landscape" / "Travel.mp4")
+    (tmp_path / "videos_landscape").mkdir()
+    Path(video_path).touch()
+    _make_meta_file(youtube_dir, "Travel", video_path=video_path)
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    mock_playlist = MagicMock(return_value="pl1")
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist", mock_playlist), \
+         patch("insta_loader.youtube_uploader._upload_video", return_value="vid1"), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"), \
+         patch("insta_loader.youtube_uploader._mark_uploaded"):
+        run_upload(YoutubeConfig(
+            username="testuser",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+            landscape=True,
+        ))
+
+    out = capsys.readouterr().out
+    assert "no metadata found" not in out.lower()
+    playlist_name_used = mock_playlist.call_args[0][1]
+    assert "16:9" in playlist_name_used
+
+
+def test_run_landscape_exits_when_no_landscape_dir(tmp_path):
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    _make_meta_file(youtube_dir, "Travel")
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         pytest.raises(SystemExit):
+        run_upload(YoutubeConfig(
+            username="testuser",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+            landscape=True,
+        ))
