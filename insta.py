@@ -47,6 +47,7 @@ def main() -> None:
     vid.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<username>/)")
     vid.add_argument("--image-duration", dest="image_duration", type=int, default=10, metavar="SECONDS", help="Duration in seconds for image slides (default: 10)")
     vid.add_argument("--update", action="store_true", help="Re-encode only highlights that are newer than their existing video (and highlights with no video yet)")
+    vid.add_argument("--landscape", action="store_true", help="Create 16:9 landscape videos with blurred+darkened background (outputs to videos_landscape/)")
 
     summ = subparsers.add_parser("summary", help="Regenerate summary.json from downloaded slides on disk.")
     summ.add_argument("username", help="Instagram username (without @)")
@@ -57,6 +58,7 @@ def main() -> None:
     yt_meta.add_argument("--highlight", help="Partial name match — process only this highlight")
     yt_meta.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
     yt_meta.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status (default: unlisted)")
+    yt_meta.add_argument("--landscape", action="store_true", help="Generate metadata for landscape videos in videos_landscape/ (writes to youtube_landscape/)")
 
     yt_upload = subparsers.add_parser("youtube-upload", help="Upload assembled MP4s as private YouTube videos.")
     yt_upload.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
@@ -66,6 +68,7 @@ def main() -> None:
     yt_upload.add_argument("--playlist", default="Story Highlights", help="YouTube playlist name (default: Story Highlights)")
     yt_upload.add_argument("--update", action="store_true", help="Delete outdated uploaded videos (after confirmation) and re-upload the re-encoded versions")
     yt_upload.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status for new uploads (default: unlisted)")
+    yt_upload.add_argument("--landscape", action="store_true", help="Upload landscape videos from youtube_landscape/ metadata")
 
     args = parser.parse_args()
 
@@ -98,6 +101,7 @@ def main() -> None:
             output_dir=args.output_dir,
             image_duration=args.image_duration,
             update=args.update,
+            landscape=args.landscape,
         ))
 
     elif args.command == "summary":
@@ -109,6 +113,7 @@ def main() -> None:
             highlight=args.highlight,
             output_dir=args.output_dir,
             privacy=args.privacy,
+            landscape=args.landscape,
         ))
 
     elif args.command == "youtube-upload":
@@ -121,6 +126,7 @@ def main() -> None:
             playlist=args.playlist,
             update=args.update,
             privacy=args.privacy,
+            landscape=args.landscape,
         ))
 
 

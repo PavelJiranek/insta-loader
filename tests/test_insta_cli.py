@@ -67,3 +67,36 @@ def test_youtube_upload_subparser_exists():
     )
     assert result.returncode == 0
     assert "insta-username" in result.stdout or "username" in result.stdout
+
+
+def test_videos_landscape_flag_passed_to_video_config():
+    with patch("insta_loader.video_creator.run") as mock_run, \
+         patch("sys.argv", ["insta.py", "videos", "testuser", "--landscape"]):
+        import insta
+        import importlib
+        importlib.reload(insta)
+        insta.main()
+    config = mock_run.call_args[0][0]
+    assert config.landscape is True
+
+
+def test_youtube_meta_landscape_flag_passed_to_youtube_config():
+    with patch("insta_loader.youtube_meta.run") as mock_run, \
+         patch("sys.argv", ["insta.py", "youtube-meta", "testuser", "--landscape"]):
+        import insta
+        import importlib
+        importlib.reload(insta)
+        insta.main()
+    config = mock_run.call_args[0][0]
+    assert config.landscape is True
+
+
+def test_youtube_upload_landscape_flag_passed_to_youtube_config():
+    with patch("insta_loader.youtube_uploader.run") as mock_run, \
+         patch("sys.argv", ["insta.py", "youtube-upload", "testuser", "--landscape"]):
+        import insta
+        import importlib
+        importlib.reload(insta)
+        insta.main()
+    config = mock_run.call_args[0][0]
+    assert config.landscape is True
