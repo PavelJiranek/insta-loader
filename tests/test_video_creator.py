@@ -501,3 +501,27 @@ def test_normalize_slide_portrait_unchanged(tmp_path):
     cmd = mock_run.call_args[0][0]
     assert "-vf" in cmd
     assert "overlay" not in " ".join(cmd)
+
+
+def test_mark_youtube_outdated_landscape_writes_to_landscape_dir(tmp_path):
+    yt_dir = tmp_path / "youtube_landscape"
+    yt_dir.mkdir()
+    meta = {"uploaded": True, "outdated": False, "youtube": {"title": "Test"}}
+    (yt_dir / "Travel.json").write_text(json.dumps(meta))
+
+    _mark_youtube_outdated(tmp_path, "Travel", landscape=True)
+
+    result = json.loads((yt_dir / "Travel.json").read_text())
+    assert result["outdated"] is True
+
+
+def test_mark_youtube_outdated_portrait_unchanged_by_landscape_param(tmp_path):
+    yt_dir = tmp_path / "youtube"
+    yt_dir.mkdir()
+    meta = {"uploaded": True, "outdated": False}
+    (yt_dir / "Travel.json").write_text(json.dumps(meta))
+
+    _mark_youtube_outdated(tmp_path, "Travel", landscape=True)
+
+    result = json.loads((yt_dir / "Travel.json").read_text())
+    assert result["outdated"] is False

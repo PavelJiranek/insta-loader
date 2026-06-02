@@ -80,9 +80,10 @@ def _needs_update(highlight_dir: Path, video_path: Path) -> bool:
     )
 
 
-def _mark_youtube_outdated(base: Path, folder_name: str) -> None:
-    """Set outdated=True in youtube/<folder_name>.json if it was previously uploaded."""
-    meta_path = base / "youtube" / f"{folder_name}.json"
+def _mark_youtube_outdated(base: Path, folder_name: str, landscape: bool = False) -> None:
+    """Set outdated=True in youtube[_landscape]/<folder_name>.json if previously uploaded."""
+    youtube_folder = "youtube_landscape" if landscape else "youtube"
+    meta_path = base / youtube_folder / f"{folder_name}.json"
     if not meta_path.exists():
         return
     meta = json.loads(meta_path.read_text())
