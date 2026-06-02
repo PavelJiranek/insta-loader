@@ -19,6 +19,7 @@ class VideoConfig:
     output_dir: Optional[str] = None
     image_duration: int = 10
     update: bool = False
+    landscape: bool = False
 
 
 @dataclass
@@ -30,3 +31,4 @@ class YoutubeConfig:
     playlist: str = "Story Highlights"
     update: bool = False
     privacy: str = "unlisted"
+    landscape: bool = False

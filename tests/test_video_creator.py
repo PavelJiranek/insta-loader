@@ -457,3 +457,8 @@ def test_run_update_encodes_highlight_with_no_video(
 
     mock_norm.assert_called_once()
     mock_concat.assert_called_once()
+
+
+def test_video_config_landscape_defaults_false():
+    c = VideoConfig(username="testuser")
+    assert c.landscape is False

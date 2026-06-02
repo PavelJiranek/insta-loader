@@ -330,3 +330,8 @@ def test_run_filters_by_highlight_name(tmp_path):
 
     assert (tmp_path / "youtube" / "Travel.json").exists()
     assert not (tmp_path / "youtube" / "Summer.json").exists()
+
+
+def test_youtube_config_landscape_defaults_false():
+    c = YoutubeConfig(username="testuser")
+    assert c.landscape is False
