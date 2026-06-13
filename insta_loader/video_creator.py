@@ -247,7 +247,20 @@ def _filter_highlights(query: str, dirs: list) -> list:
 
 
 def run(config: VideoConfig) -> None:
+    caffeinate = None
+    if config.no_sleep:
+        try:
+            caffeinate = subprocess.Popen(["caffeinate", "-i"])
+        except FileNotFoundError:
+            print("⚠  caffeinate not found — --no-sleep has no effect on this platform")
+    try:
+        _encode(config)
+    finally:
+        if caffeinate is not None:
+            caffeinate.terminate()
 
+
+def _encode(config: VideoConfig) -> None:
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     instagram_dir = base / "instagram"
     if not instagram_dir.exists():

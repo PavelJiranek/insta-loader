@@ -20,6 +20,7 @@ class VideoConfig:
     image_duration: int = 10
     update: bool = False
     landscape: bool = False
+    no_sleep: bool = False
 
 
 @dataclass

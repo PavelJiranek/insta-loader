@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `--no-sleep` flag on `videos` — runs `caffeinate -i` in the background to prevent macOS from sleeping during encoding; silently ignored on non-macOS platforms where `caffeinate` is absent
 - `--landscape` flag for `videos`, `youtube-meta`, and `youtube-upload` commands — produces 16:9 MP4s with blurred+darkened portrait background (`sigma=25`, 40% brightness), stored in `videos_landscape/` and `youtube_landscape/`, uploaded to a separate playlist suffixed with `· 16:9`; landscape filenames get a `_landscape` suffix (e.g. `Travel_landscape.mp4`)
 - `--retry-failed` flag on `highlights` — scans local metadata for slides with `"status": "failed"` and retries only those, without fetching the full highlight list from the API
 - `INSTA_SLEEP_JITTER` env var — randomises the sleep interval by ±50% by default to avoid fixed-interval request patterns; configurable (0 = no jitter, 1 = ±100%)
