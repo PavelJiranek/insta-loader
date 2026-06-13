@@ -319,6 +319,7 @@ def _encode(config: VideoConfig) -> None:
             task_id = prog.add_video_task(progress, title, len(slides))
             tmp_dir = Path(tempfile.mkdtemp())
             start = time.time()
+            completed = False
             try:
                 clips = []
                 for slide in slides:
@@ -330,6 +331,7 @@ def _encode(config: VideoConfig) -> None:
                     clips.append(clip)
                     prog.advance(progress, task_id, slide["path"].name)
                 _concat_clips(clips, output_path)
+                completed = True
                 elapsed = time.time() - start
                 m, s = divmod(int(elapsed), 60)
                 prog.complete_video_task(progress, task_id, title, m, s)
@@ -340,7 +342,7 @@ def _encode(config: VideoConfig) -> None:
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")
-                if output_path.exists():
-                    send2trash(str(output_path))
             finally:
+                if not completed and output_path.exists():
+                    send2trash(str(output_path))
                 shutil.rmtree(tmp_dir, ignore_errors=True)
