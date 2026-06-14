@@ -490,11 +490,12 @@ def run(config: YoutubeConfig) -> None:
         meta_obj = json.loads((hdir / "metadata.json").read_text(encoding="utf-8"))
         slides = meta_obj.get("slides", [])
         meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy, landscape=config.landscape)
-        written = _write_meta(youtube_dir, folder_name, meta)
+        json_stem = f"{folder_name}_landscape" if config.landscape else folder_name
+        written = _write_meta(youtube_dir, json_stem, meta)
 
         title = meta["youtube"]["title"]
         if written:
-            meta_path = youtube_dir / f"{folder_name}.json"
+            meta_path = youtube_dir / f"{json_stem}.json"
             rprint(f"[green]✓[/green]  {title} → {meta_path}")
         else:
             rprint(f"[dim]–  {title} skipped (already uploaded, not regenerating)[/dim]")

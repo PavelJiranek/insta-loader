@@ -138,17 +138,14 @@ def _mark_uploaded(meta_path: Path, youtube_id: str) -> None:
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
-def _check_missing_metadata(videos_dir: Path, youtube_dir: Path, landscape: bool = False) -> list:
+def _check_missing_metadata(videos_dir: Path, youtube_dir: Path) -> list:
     """Return video stems that have no corresponding YouTube metadata JSON."""
     if not videos_dir.exists():
         return []
-    missing = []
-    for v in videos_dir.glob("*.mp4"):
-        stem = v.stem
-        folder = stem[: -len("_landscape")] if landscape and stem.endswith("_landscape") else stem
-        if not (youtube_dir / f"{folder}.json").exists():
-            missing.append(stem)
-    return sorted(missing)
+    return sorted(
+        v.stem for v in videos_dir.glob("*.mp4")
+        if not (youtube_dir / f"{v.stem}.json").exists()
+    )
 
 
 def _delete_outdated(youtube, meta_files: list) -> None:
@@ -192,7 +189,7 @@ def run(config: YoutubeConfig) -> None:
     videos_dir = base / ("videos_landscape" if config.landscape else "videos")
 
     # Offer to auto-generate metadata for videos that have none yet
-    missing = _check_missing_metadata(videos_dir, youtube_dir, landscape=config.landscape)
+    missing = _check_missing_metadata(videos_dir, youtube_dir)
     if missing:
         rprint(f"[yellow]ℹ  {len(missing)} video(s) have no YouTube metadata:[/yellow]")
         for name in missing:
