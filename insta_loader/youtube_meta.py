@@ -480,7 +480,8 @@ def run(config: YoutubeConfig) -> None:
 
     for hdir in highlight_dirs:
         folder_name = hdir.name
-        video_path = videos_dir / f"{folder_name}.mp4"
+        stem = f"{folder_name}_landscape" if config.landscape else folder_name
+        video_path = videos_dir / f"{stem}.mp4"
 
         if not video_path.exists():
             print(f"✗  {folder_name} — no video at {video_path}, skipping")
