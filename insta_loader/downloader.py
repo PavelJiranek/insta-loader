@@ -102,8 +102,25 @@ def run(config: Config) -> None:
     try:
         profile = instaloader.Profile.from_username(L.context, config.username)
     except instaloader.exceptions.ProfileNotExistsException:
-        print(f"✗  @{config.username} not found.")
-        sys.exit(1)
+        if config.login_user:
+            # Likely a stale session — delete it and re-authenticate, then retry once.
+            print(f"⚠  Session appears stale. Re-authenticating as @{config.login_user}...")
+            session_file = _session_path(config.login_user)
+            Path(session_file).unlink(missing_ok=True)
+            try:
+                L.interactive_login(config.login_user)
+                L.save_session_to_file(session_file)
+            except instaloader.exceptions.BadCredentialsException:
+                print("✗  Wrong password.")
+                sys.exit(1)
+            try:
+                profile = instaloader.Profile.from_username(L.context, config.username)
+            except instaloader.exceptions.ProfileNotExistsException:
+                print(f"✗  @{config.username} not found even after re-auth.")
+                sys.exit(1)
+        else:
+            print(f"✗  @{config.username} not found.")
+            sys.exit(1)
 
     if config.login_user and config.login_user.lower() == config.username.lower():
         pass  # downloading own account — skip private check
