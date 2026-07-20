@@ -135,7 +135,12 @@ def run(config: Config) -> None:
         except Exception:
             pass  # API rejected the check — proceed anyway
 
-    all_highlights = _get_all_highlights(L, profile)
+    try:
+        all_highlights = _get_all_highlights(L, profile)
+    except instaloader.exceptions.ConnectionException as e:
+        print(f"✗  Instagram returned an error fetching highlights: {e}")
+        print("   This is usually a temporary server-side block. Wait a few minutes and try again.")
+        sys.exit(1)
 
     if config.highlight:
         highlights = _resolve_highlight(config.highlight, all_highlights)
