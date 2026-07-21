@@ -32,6 +32,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Elapsed time shown in completed video task rows instead of the misleading `0:00:00` remaining time
 
 ### Fixed
+- **ffmpeg crash on reordered highlights**: `_collect_slides` now derives image-vs-video from the file extension on disk instead of the (possibly stale) metadata `type`. Reordering a highlight on Instagram could leave a video file at an index recorded as `image`, sending it through the `-loop` image branch and failing with `Option loop not found`.
 - **Stale Instagram session now auto-recovers**: when a profile fetch fails with `ProfileNotExistsException` and a login user is set, the session file is deleted, re-authentication is prompted, and the fetch retried once — instead of exiting with a misleading "not found"
 - **Highlights-API errors no longer dump a traceback**: `ConnectionException` from the highlights endpoint (Instagram's intermittent `"fail"` response) is caught and reported as a clean message with a retry hint
 - **Partial video trashed on interrupt**: a cancelled (Ctrl+C) or failed encode now moves its incomplete output file to Trash, so a rerun with `--update` re-encodes it from scratch instead of treating the partial as up-to-date

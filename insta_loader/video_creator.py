@@ -17,6 +17,8 @@ from insta_loader.cli import VideoConfig
 
 _FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
+_VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
+
 
 def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
     if meta is None:
@@ -32,10 +34,16 @@ def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
         matches = [m for m in _glob.glob(str(highlight_dir / f"{safe_filename}_*")) if not m.endswith(".temp")]
         if not matches:
             continue
+        path = Path(matches[0])
+        # Derive type from the file on disk, not the metadata field — the recorded
+        # type can go stale if a highlight is reordered on Instagram (the media at an
+        # index changes but the file is kept), and feeding a video through the image
+        # (-loop) branch makes ffmpeg fail.
+        slide_type = "video" if path.suffix.lower() in _VIDEO_EXTS else "image"
         result.append({
             "index": slide["index"],
-            "type": slide.get("type", "image"),
-            "path": Path(matches[0]),
+            "type": slide_type,
+            "path": path,
         })
     result.sort(key=lambda s: s["index"])
     return result

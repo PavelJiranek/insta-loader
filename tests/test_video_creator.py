@@ -57,6 +57,21 @@ def test_collect_slides_returns_correct_type_and_path(tmp_path):
     assert result[0]["path"] == actual_file
 
 
+def test_collect_slides_type_from_file_extension_overrides_stale_metadata(tmp_path):
+    # metadata says image, but the file on disk is a video (e.g. after a reorder).
+    _write_meta(tmp_path, [
+        {"index": 1, "filename": "Test_01", "type": "image", "status": "downloaded"},
+        {"index": 2, "filename": "Test_02", "type": "video", "status": "downloaded"},
+    ])
+    (tmp_path / "Test_01_20250101_000000.mp4").touch()  # actually a video
+    (tmp_path / "Test_02_20250101_000000.jpg").touch()  # actually an image
+
+    result = _collect_slides(tmp_path)
+
+    assert result[0]["type"] == "video"  # derived from .mp4, not metadata "image"
+    assert result[1]["type"] == "image"  # derived from .jpg, not metadata "video"
+
+
 def test_collect_slides_skips_missing_file(tmp_path):
     _write_meta(tmp_path, [
         {"index": 1, "filename": "Test_01", "type": "video", "status": "downloaded"},
