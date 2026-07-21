@@ -55,6 +55,7 @@ def main() -> None:
     vid.add_argument("--image-duration", dest="image_duration", type=int, default=10, metavar="SECONDS", help="Duration in seconds for image slides (default: 10)")
     vid.add_argument("--update", action="store_true", help="Re-encode only highlights that are newer than their existing video (and highlights with no video yet)")
     vid.add_argument("--landscape", action="store_true", help="Create 16:9 landscape videos with blurred+darkened background (outputs to videos_landscape/)")
+    vid.add_argument("--both-formats", dest="both_formats", action="store_true", help="Create both portrait and landscape videos in one run")
     vid.add_argument("--no-sleep", dest="no_sleep", action="store_true", help="Prevent macOS from sleeping during encoding (uses caffeinate)")
 
     summ = subparsers.add_parser("summary", help="Regenerate summary.json from downloaded slides on disk.")
@@ -111,6 +112,7 @@ def main() -> None:
             image_duration=args.image_duration,
             update=args.update,
             landscape=args.landscape,
+            both_formats=args.both_formats,
             no_sleep=args.no_sleep,
         ))
 

@@ -547,3 +547,27 @@ def test_run_landscape_writes_to_videos_landscape_dir(tmp_path):
     mock_norm.assert_called_once()
     call_kwargs = mock_norm.call_args[1]
     assert call_kwargs.get("landscape") is True
+
+
+def test_run_both_formats_writes_portrait_and_landscape(tmp_path):
+    instagram_dir = tmp_path / "instagram" / "Travel"
+    instagram_dir.mkdir(parents=True)
+    slides = [{"index": 1, "filename": "Travel_01", "type": "image",
+               "date_utc": "2026-01-01T00:00:00Z", "status": "downloaded"}]
+    (instagram_dir / "metadata.json").write_text(json.dumps({
+        "highlight_title": "Travel", "slides": slides
+    }))
+    (instagram_dir / "Travel_01_20260101_000000.jpg").touch()
+
+    with patch("insta_loader.video_creator._normalize_slide") as mock_norm, \
+         patch("insta_loader.video_creator._concat_clips"):
+        mock_norm.return_value = tmp_path / "clip_001.mp4"
+        (tmp_path / "clip_001.mp4").touch()
+        run(VideoConfig(username="testuser", output_dir=str(tmp_path), both_formats=True))
+
+    # Both output dirs created.
+    assert (tmp_path / "videos").exists()
+    assert (tmp_path / "videos_landscape").exists()
+    # _normalize_slide called once per format (portrait then landscape).
+    landscape_flags = sorted(c.kwargs.get("landscape") for c in mock_norm.call_args_list)
+    assert landscape_flags == [False, True]

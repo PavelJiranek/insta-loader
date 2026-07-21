@@ -21,6 +21,7 @@ class VideoConfig:
     image_duration: int = 10
     update: bool = False
     landscape: bool = False
+    both_formats: bool = False
     no_sleep: bool = False
 
 

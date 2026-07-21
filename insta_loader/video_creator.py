@@ -255,13 +255,22 @@ def run(config: VideoConfig) -> None:
         except FileNotFoundError:
             print("⚠  caffeinate not found — --no-sleep has no effect on this platform")
     try:
-        _encode(config)
+        if config.both_formats:
+            formats = [False, True]
+        elif config.landscape:
+            formats = [True]
+        else:
+            formats = [False]
+        for landscape in formats:
+            if config.both_formats:
+                rprint(f"\n[bold]━━ {'Landscape (16:9)' if landscape else 'Portrait'} ━━[/bold]")
+            _encode(config, landscape)
     finally:
         if caffeinate is not None:
             caffeinate.terminate()
 
 
-def _encode(config: VideoConfig) -> None:
+def _encode(config: VideoConfig, landscape: bool) -> None:
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     instagram_dir = base / "instagram"
     if not instagram_dir.exists():
@@ -279,7 +288,7 @@ def _encode(config: VideoConfig) -> None:
     if config.highlight:
         highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
 
-    videos_dir_name = "videos_landscape" if config.landscape else "videos"
+    videos_dir_name = "videos_landscape" if landscape else "videos"
     videos_dir = base / videos_dir_name
     videos_dir.mkdir(exist_ok=True)
 
@@ -293,7 +302,7 @@ def _encode(config: VideoConfig) -> None:
         if not slides:
             prog.log_video_skip(f"{title} — no valid slides, skipping")
             continue
-        stem = f"{hdir.name}_landscape" if config.landscape else hdir.name
+        stem = f"{hdir.name}_landscape" if landscape else hdir.name
         output_path = videos_dir / f"{stem}.mp4"
         if config.update:
             if not _needs_update(hdir, output_path):
@@ -327,7 +336,7 @@ def _encode(config: VideoConfig) -> None:
                     clip = _normalize_slide(
                         slide["path"], slide["index"], tmp_dir, slide["type"] == "video",
                         config.image_duration,
-                        landscape=config.landscape,
+                        landscape=landscape,
                     )
                     clips.append(clip)
                     prog.advance(progress, task_id, slide["path"].name)
@@ -339,7 +348,7 @@ def _encode(config: VideoConfig) -> None:
                 progress.advance(overall)
                 print(f"✓  {output_path.name} — {len(slides)} slides, {m}m {s:02d}s")
                 if config.update:
-                    _mark_youtube_outdated(base, hdir.name, landscape=config.landscape)
+                    _mark_youtube_outdated(base, hdir.name, landscape=landscape)
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")

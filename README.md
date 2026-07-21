@@ -114,14 +114,19 @@ python3 insta.py videos <username> [options]
 | `--update` | Re-encode only highlights newer than their existing video |
 | `--image-duration N` | Seconds each image slide is shown (default: 10) |
 | `--landscape` | Create 16:9 landscape videos with blurred+darkened background (saved to `videos_landscape/`) |
+| `--both-formats` | Create both portrait and landscape videos in one run |
+| `--no-sleep` | Prevent macOS from sleeping during encoding (uses `caffeinate`) |
 | `--output-dir DIR` | Override base directory |
 
 ```bash
 python3 insta.py videos natgeo
 python3 insta.py videos natgeo --update
+
+# Portrait + landscape in one pass, keeping the Mac awake
+python3 insta.py videos natgeo --both-formats --update --no-sleep
 ```
 
-Videos are saved to `output/<username>/videos/`. Failed encodes are moved to Trash, not permanently deleted.
+Videos are saved to `output/<username>/videos/` (portrait) and `output/<username>/videos_landscape/` (landscape). Failed or interrupted encodes are moved to Trash, not permanently deleted.
 
 ---
 

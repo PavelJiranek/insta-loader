@@ -10,8 +10,9 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Added
 - `--backend {instaloader,instagrapi}` flag on `highlights` (default: `instaloader`, or `INSTA_BACKEND` from `.env`) — alternative download backend built on [instagrapi](https://github.com/subzeroid/instagrapi), which emulates the mobile app more completely (persistent device fingerprint, consistent UUIDs) and gets through the `highlights_tray` endpoint when instaloader receives a generic `"fail"` response. Output is byte-compatible (same slide filenames and `metadata.json`), so downstream `videos`/`youtube-*` commands are unaffected. The instagrapi backend paginates the highlights tray past its 100-item page cap and stores its session at `~/.config/instaloader/instagrapi-settings-<user>.json`.
 - `INSTA_BACKEND` env var — sets the default download backend without passing `--backend` each run (the project default remains `instaloader` when unset).
+- `--both-formats` flag on `videos` — produces both portrait and landscape videos in a single run (encodes each highlight twice, once per format)
 - `--no-sleep` flag on `videos` — runs `caffeinate -i` in the background to prevent macOS from sleeping during encoding; silently ignored on non-macOS platforms where `caffeinate` is absent
-- `--landscape` flag for `videos`, `youtube-meta`, and `youtube-upload` commands — produces 16:9 MP4s with blurred+darkened portrait background (`sigma=25`, 40% brightness), stored in `videos_landscape/` and `youtube_landscape/`, uploaded to a separate playlist suffixed with `· 16:9`; landscape filenames get a `_landscape` suffix (e.g. `Travel_landscape.mp4`)
+- `--landscape` flag for `videos`, `youtube-meta`, and `youtube-upload` commands — produces 16:9 MP4s with blurred+darkened portrait background (`sigma=25`, 40% brightness), stored in `videos_landscape/` and `youtube_landscape/`, uploaded to a separate playlist suffixed with `· 16:9`; landscape videos and their metadata JSONs both get a `_landscape` suffix (e.g. `Travel_landscape.mp4`, `Travel_landscape.json`)
 - `--retry-failed` flag on `highlights` — scans local metadata for slides with `"status": "failed"` and retries only those, without fetching the full highlight list from the API
 - `INSTA_SLEEP_JITTER` env var — randomises the sleep interval by ±50% by default to avoid fixed-interval request patterns; configurable (0 = no jitter, 1 = ±100%)
 - `highlights --update` now re-downloads highlights previously marked `complete` when Instagram has added new slides since the last run
@@ -31,13 +32,16 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Elapsed time shown in completed video task rows instead of the misleading `0:00:00` remaining time
 
 ### Fixed
+- **Stale Instagram session now auto-recovers**: when a profile fetch fails with `ProfileNotExistsException` and a login user is set, the session file is deleted, re-authentication is prompted, and the fetch retried once — instead of exiting with a misleading "not found"
+- **Highlights-API errors no longer dump a traceback**: `ConnectionException` from the highlights endpoint (Instagram's intermittent `"fail"` response) is caught and reported as a clean message with a retry hint
+- **Partial video trashed on interrupt**: a cancelled (Ctrl+C) or failed encode now moves its incomplete output file to Trash, so a rerun with `--update` re-encodes it from scratch instead of treating the partial as up-to-date
+- **`youtube-upload --landscape` couldn't find metadata**: landscape metadata JSONs are now named `<folder>_landscape.json`, matching the video filename convention, so the uploader locates them correctly
 - **Landscape SAR mismatch in concat**: `setsar=1:1` added to `_VF_LANDSCAPE` so all landscape clips normalise before concatenation
 - **Landscape missing-metadata check always scanned `videos/`**: `_check_missing_metadata` now receives the resolved `videos_dir` so `--landscape` correctly scans `videos_landscape/`
 - **Playlist suffix inconsistency**: landscape playlist was `<name> 16:9` (space) while title used `· 16:9`; both now consistently use `· 16:9`
 - **YouTube token refresh crashing on invalid/changed scope**: token is now auto-deleted and re-auth triggered instead of crashing
 - **`is_private` check crashing when downloading own account**: skipped when `--login-user` matches the target username; also catches API rejections gracefully
 - **ffmpeg SAR mismatch on ICC-profiled images**: `setsar=1:1` added to portrait `_VF` filter
-- **Partial output file left after ffmpeg failure**: failed encodes are moved to Trash rather than leaving a corrupt file
 - **`youtube-upload` confirmation prompt skipped when `--retry-failed` set**: all three non-interactive flags (`--update`, `--retry-failed`, `--highlight`) now suppress the bulk-download prompt
 - **`.temp` files counted as valid slides**: glob patterns now exclude `*.temp` files in slide existence checks
 
