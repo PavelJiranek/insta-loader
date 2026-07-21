@@ -1,4 +1,5 @@
 instaloader>=4.15.2
+instagrapi>=2.1.0
 rich>=13.0
 python-dotenv>=1.0
 imageio-ffmpeg>=0.4

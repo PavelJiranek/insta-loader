@@ -76,6 +76,7 @@ python3 insta.py highlights <username> [options]
 | `--update` | Skip highlights already marked complete; re-download if the source has new slides |
 | `--retry-failed` | Only retry highlights that have failed slides |
 | `--login-user USER` | Account to authenticate as (or set `INSTA_LOGIN_USER` in `.env`) |
+| `--backend {instaloader,instagrapi}` | Download backend (default: `instaloader`). Switch to `instagrapi` if Instagram soft-blocks the highlights API |
 | `--output-dir DIR` | Override default output path |
 
 ```bash
@@ -87,6 +88,9 @@ python3 insta.py highlights natgeo --update
 
 # Re-try previously failed slides only
 python3 insta.py highlights natgeo --retry-failed
+
+# Use the instagrapi backend when instaloader gets a "fail" response on highlights
+python3 insta.py highlights natgeo --update --backend instagrapi
 
 # Single highlight by partial name
 python3 insta.py highlights natgeo --highlight "travel"

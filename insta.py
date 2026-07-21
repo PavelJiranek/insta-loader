@@ -40,6 +40,12 @@ def main() -> None:
         default=os.environ.get("INSTA_LOGIN_USER"),
         help="Instagram account to authenticate as (defaults to INSTA_LOGIN_USER from .env)",
     )
+    hl.add_argument(
+        "--backend",
+        default="instaloader",
+        choices=["instaloader", "instagrapi"],
+        help="Download backend (default: instaloader). Use instagrapi if the highlights API is blocked.",
+    )
 
     vid = subparsers.add_parser("videos", help="Assemble downloaded slides into MP4s.")
     vid.add_argument("username", help="Instagram username (without @)")
@@ -93,6 +99,7 @@ def main() -> None:
             login_user=args.login_user,
             update=args.update,
             retry_failed=args.retry_failed,
+            backend=args.backend,
         ))
 
     elif args.command == "videos":

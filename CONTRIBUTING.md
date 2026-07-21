@@ -15,7 +15,8 @@ Entry point: `insta.py` — all subcommands (`highlights`, `videos`, `youtube-me
 |---|---|
 | `insta.py` | CLI entry point — argparse subcommands, config construction |
 | `insta_loader/cli.py` | `Config`, `VideoConfig`, `YoutubeConfig` dataclasses |
-| `insta_loader/downloader.py` | Instagram API calls, slide download, resume logic |
+| `insta_loader/downloader.py` | Instagram API calls (instaloader backend), slide download, resume logic |
+| `insta_loader/instagrapi_downloader.py` | Alternative download backend (instagrapi), selected with `--backend instagrapi` |
 | `insta_loader/organizer.py` | Folder layout, filename sanitisation, slide existence checks |
 | `insta_loader/summarizer.py` | Rebuilds `summary.json` from metadata on disk |
 | `insta_loader/video_creator.py` | ffmpeg pipeline — normalise slides, concat, landscape mode |
@@ -101,6 +102,9 @@ The landscape pipeline needs two independent video streams from the same input (
 
 **Why `setsar=1:1` in both portrait and landscape filters?**
 Slides from ICC-profiled photos can have non-square sample aspect ratios (e.g. `47120:47029`). Without normalisation, the concat filter rejects clips with mismatched SARs.
+
+**Why two download backends (instaloader + instagrapi)?**
+instaloader is the default and needs no login for public accounts. When Instagram soft-blocks its `highlights_tray` requests (a generic `200 OK "fail"` response), instagrapi's fuller mobile-app emulation often still works. The backend is selected at the top of `downloader.run()`; `instagrapi_downloader.run()` reuses `organizer`, `progress`, and `summarizer` so both backends produce identical on-disk output. The instaloader path is intentionally left untouched by the instagrapi branch to avoid regressions.
 
 **Why split `youtube/` and `youtube_landscape/`?**
 Keeps portrait and landscape upload states completely independent. Either can be uploaded, re-uploaded, or deleted without touching the other.

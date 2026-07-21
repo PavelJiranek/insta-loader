@@ -77,6 +77,11 @@ def _get_all_highlights(L: instaloader.Instaloader, profile) -> list:
 
 
 def run(config: Config) -> None:
+    if config.backend == "instagrapi":
+        from insta_loader import instagrapi_downloader
+        instagrapi_downloader.run(config)
+        return
+
     L = instaloader.Instaloader(
         download_videos=True,
         download_video_thumbnails=False,

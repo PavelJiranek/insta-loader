@@ -10,6 +10,7 @@ class Config:
     login_user: Optional[str]
     update: bool = False
     retry_failed: bool = False
+    backend: str = "instaloader"
 
 
 @dataclass
