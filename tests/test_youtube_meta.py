@@ -361,13 +361,13 @@ def test_run_landscape_reads_videos_landscape_and_writes_youtube_landscape(tmp_p
     _make_highlight(tmp_path, "Travel")
     videos_dir = tmp_path / "videos_landscape"
     videos_dir.mkdir()
-    (videos_dir / "Travel.mp4").touch()
+    (videos_dir / "Travel_landscape.mp4").touch()
 
     run_meta(YoutubeConfig(username="testuser", output_dir=str(tmp_path), landscape=True))
 
-    assert (tmp_path / "youtube_landscape" / "Travel.json").exists()
+    assert (tmp_path / "youtube_landscape" / "Travel_landscape.json").exists()
     assert not (tmp_path / "youtube" / "Travel.json").exists()
-    meta = json.loads((tmp_path / "youtube_landscape" / "Travel.json").read_text())
+    meta = json.loads((tmp_path / "youtube_landscape" / "Travel_landscape.json").read_text())
     assert "16:9" in meta["youtube"]["title"]
 
 

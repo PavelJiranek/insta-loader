@@ -507,11 +507,11 @@ def test_mark_youtube_outdated_landscape_writes_to_landscape_dir(tmp_path):
     yt_dir = tmp_path / "youtube_landscape"
     yt_dir.mkdir()
     meta = {"uploaded": True, "outdated": False, "youtube": {"title": "Test"}}
-    (yt_dir / "Travel.json").write_text(json.dumps(meta))
+    (yt_dir / "Travel_landscape.json").write_text(json.dumps(meta))
 
     _mark_youtube_outdated(tmp_path, "Travel", landscape=True)
 
-    result = json.loads((yt_dir / "Travel.json").read_text())
+    result = json.loads((yt_dir / "Travel_landscape.json").read_text())
     assert result["outdated"] is True
 
 
