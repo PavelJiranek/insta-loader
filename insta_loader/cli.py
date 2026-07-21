@@ -35,3 +35,4 @@ class YoutubeConfig:
     update: bool = False
     privacy: str = "unlisted"
     landscape: bool = False
+    both_formats: bool = False

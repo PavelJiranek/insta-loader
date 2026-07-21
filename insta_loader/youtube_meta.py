@@ -459,6 +459,13 @@ def _write_meta(youtube_dir: Path, folder_name: str, meta: dict) -> bool:
 def run(config: YoutubeConfig) -> None:
     from rich import print as rprint
 
+    if config.both_formats:
+        from dataclasses import replace
+        for landscape in (False, True):
+            rprint(f"\n[bold]━━ {'Landscape (16:9)' if landscape else 'Portrait'} ━━[/bold]")
+            run(replace(config, landscape=landscape, both_formats=False))
+        return
+
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     instagram_dir = base / "instagram"
     if not instagram_dir.exists():

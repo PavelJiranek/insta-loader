@@ -143,6 +143,7 @@ python3 insta.py youtube-meta <username> [options]
 | `--highlight NAME` | Process only this highlight |
 | `--privacy STATUS` | `unlisted` (default), `private`, or `public` |
 | `--landscape` | Generate metadata for landscape videos (reads `videos_landscape/`, writes `youtube_landscape/`) |
+| `--both-formats` | Generate metadata for both portrait and landscape videos in one run |
 
 Titles and tags are auto-generated from folder names — flag emoji detection, camelCase splitting, part numbers, date ranges, country/continent tags.
 
@@ -159,6 +160,7 @@ python3 insta.py youtube-upload <username> [options]
 | `--highlight NAME` | Upload only this highlight |
 | `--update` | Delete outdated uploads (after confirmation) and re-upload |
 | `--landscape` | Upload landscape videos (reads `youtube_landscape/` metadata, uploads to a separate `· 16:9` playlist) |
+| `--both-formats` | Upload both portrait and landscape videos in one run |
 | `--playlist NAME` | Playlist to add videos to (default: `Story Highlights`) |
 | `--privacy STATUS` | `unlisted` (default), `private`, or `public` |
 | `--client-secrets PATH` | Path to OAuth secrets JSON |
@@ -215,6 +217,16 @@ python3 insta.py youtube-meta <username> --landscape
 
 # 3. Upload to YouTube (separate playlist suffixed with · 16:9)
 python3 insta.py youtube-upload <username> --landscape
+```
+
+### Both formats at once
+
+`--both-formats` processes portrait and landscape in a single command:
+
+```bash
+python3 insta.py videos <username> --both-formats --update --no-sleep
+python3 insta.py youtube-meta <username> --both-formats
+python3 insta.py youtube-upload <username> --both-formats --update
 ```
 
 ---

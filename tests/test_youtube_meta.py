@@ -371,6 +371,23 @@ def test_run_landscape_reads_videos_landscape_and_writes_youtube_landscape(tmp_p
     assert "16:9" in meta["youtube"]["title"]
 
 
+def test_run_both_formats_writes_both_metadata_dirs(tmp_path):
+    _make_highlight(tmp_path, "Travel")
+    (tmp_path / "videos").mkdir()
+    (tmp_path / "videos" / "Travel.mp4").touch()
+    (tmp_path / "videos_landscape").mkdir()
+    (tmp_path / "videos_landscape" / "Travel_landscape.mp4").touch()
+
+    run_meta(YoutubeConfig(username="testuser", output_dir=str(tmp_path), both_formats=True))
+
+    assert (tmp_path / "youtube" / "Travel.json").exists()
+    assert (tmp_path / "youtube_landscape" / "Travel_landscape.json").exists()
+    portrait = json.loads((tmp_path / "youtube" / "Travel.json").read_text())
+    landscape = json.loads((tmp_path / "youtube_landscape" / "Travel_landscape.json").read_text())
+    assert "16:9" not in portrait["youtube"]["title"]
+    assert "16:9" in landscape["youtube"]["title"]
+
+
 def test_run_landscape_skips_when_no_landscape_video(tmp_path, capsys):
     _make_highlight(tmp_path, "Travel")
     videos_dir = tmp_path / "videos"

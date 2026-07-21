@@ -242,6 +242,44 @@ def test_run_marks_uploaded_on_success(tmp_path):
     assert updated["youtube_id"] == "vid_new"
 
 
+def test_run_both_formats_uploads_portrait_and_landscape(tmp_path):
+    videos_dir = tmp_path / "videos"
+    videos_dir.mkdir()
+    (videos_dir / "Travel.mp4").touch()
+    _make_meta_file(tmp_path / "youtube", "Travel",
+                    video_path=str(videos_dir / "Travel.mp4"))
+
+    videos_l = tmp_path / "videos_landscape"
+    videos_l.mkdir()
+    (videos_l / "Travel_landscape.mp4").touch()
+    _make_meta_file(tmp_path / "youtube_landscape", "Travel_landscape",
+                    video_path=str(videos_l / "Travel_landscape.mp4"))
+
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    playlists = []
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist",
+               side_effect=lambda yt, name, priv: playlists.append(name) or "PL"), \
+         patch("insta_loader.youtube_uploader._upload_video", return_value="vid"), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+            both_formats=True,
+        ))
+
+    # Both metadata files marked uploaded.
+    assert json.loads((tmp_path / "youtube" / "Travel.json").read_text())["uploaded"] is True
+    assert json.loads((tmp_path / "youtube_landscape" / "Travel_landscape.json").read_text())["uploaded"] is True
+    # Portrait and landscape (· 16:9) playlists both used.
+    assert any("16:9" not in p for p in playlists)
+    assert any("16:9" in p for p in playlists)
+
+
 def test_run_handles_api_error_and_continues(tmp_path, capsys):
     youtube_dir = tmp_path / "youtube"
     videos_dir = tmp_path / "videos"

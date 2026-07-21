@@ -184,6 +184,13 @@ def _delete_outdated(youtube, meta_files: list) -> None:
 
 
 def run(config: YoutubeConfig) -> None:
+    if config.both_formats:
+        from dataclasses import replace
+        for landscape in (False, True):
+            rprint(f"\n[bold]━━ {'Landscape (16:9)' if landscape else 'Portrait'} ━━[/bold]")
+            run(replace(config, landscape=landscape, both_formats=False))
+        return
+
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
     videos_dir = base / ("videos_landscape" if config.landscape else "videos")

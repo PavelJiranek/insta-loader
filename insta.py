@@ -68,6 +68,7 @@ def main() -> None:
     yt_meta.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<insta-username>/)")
     yt_meta.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status (default: unlisted)")
     yt_meta.add_argument("--landscape", action="store_true", help="Generate metadata for landscape videos in videos_landscape/ (writes to youtube_landscape/)")
+    yt_meta.add_argument("--both-formats", dest="both_formats", action="store_true", help="Generate metadata for both portrait and landscape videos in one run")
 
     yt_upload = subparsers.add_parser("youtube-upload", help="Upload assembled MP4s as private YouTube videos.")
     yt_upload.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
@@ -78,6 +79,7 @@ def main() -> None:
     yt_upload.add_argument("--update", action="store_true", help="Delete outdated uploaded videos (after confirmation) and re-upload the re-encoded versions")
     yt_upload.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status for new uploads (default: unlisted)")
     yt_upload.add_argument("--landscape", action="store_true", help="Upload landscape videos from youtube_landscape/ metadata")
+    yt_upload.add_argument("--both-formats", dest="both_formats", action="store_true", help="Upload both portrait and landscape videos in one run")
 
     args = parser.parse_args()
 
@@ -126,6 +128,7 @@ def main() -> None:
             output_dir=args.output_dir,
             privacy=args.privacy,
             landscape=args.landscape,
+            both_formats=args.both_formats,
         ))
 
     elif args.command == "youtube-upload":
@@ -139,6 +142,7 @@ def main() -> None:
             update=args.update,
             privacy=args.privacy,
             landscape=args.landscape,
+            both_formats=args.both_formats,
         ))
 
 
