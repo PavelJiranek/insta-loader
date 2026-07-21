@@ -42,9 +42,10 @@ def main() -> None:
     )
     hl.add_argument(
         "--backend",
-        default="instaloader",
+        default=os.environ.get("INSTA_BACKEND", "instaloader"),
         choices=["instaloader", "instagrapi"],
-        help="Download backend (default: instaloader). Use instagrapi if the highlights API is blocked.",
+        help="Download backend (default: instaloader, or INSTA_BACKEND from .env). "
+             "Use instagrapi if the highlights API is blocked.",
     )
 
     vid = subparsers.add_parser("videos", help="Assemble downloaded slides into MP4s.")

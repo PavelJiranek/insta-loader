@@ -34,6 +34,10 @@ Create a `.env` file in the project root:
 
 ```
 INSTA_LOGIN_USER=your_instagram_username
+# Optional — set the default download backend (instaloader | instagrapi).
+# instagrapi requires login but survives the highlights-API soft blocks that
+# periodically hit instaloader. Overridable per-run with --backend.
+#INSTA_BACKEND=instagrapi
 ```
 
 On first run you will be prompted for your password. The session is saved to `~/.config/instaloader/` and reused on subsequent runs.
