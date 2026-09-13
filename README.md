@@ -48,17 +48,33 @@ On first run you will be prompted for your password. The session is saved to `~/
 
 ```
 output/<username>/
-  instagram/          <- downloaded highlight folders
+  instagram/                 <- downloaded highlight folders
     Travel/
       metadata.json
       Travel_01_20230415_143200.mp4
       Travel_02_20230415_143500.jpg
     summary.json
-  videos/             <- assembled MP4s
+
+  videos/                    <- assembled MP4s (portrait, full)
     Travel.mp4
-  youtube/            <- YouTube metadata per highlight
+  videos_short/              <- --short
+    Travel_short.mp4
+  videos_landscape/          <- --landscape
+    Travel_landscape.mp4
+  videos_landscape_short/    <- --landscape --short
+    Travel_landscape_short.mp4
+
+  youtube/                   <- YouTube metadata, one dir per variant
     Travel.json
+  youtube_short/
+    Travel_short.json
+  youtube_landscape/
+    Travel_landscape.json
+  youtube_landscape_short/
+    Travel_landscape_short.json
 ```
+
+Only the variants you ask for are created — a plain `videos` run produces just `videos/`.
 
 ---
 
@@ -279,21 +295,30 @@ python3 insta.py youtube-upload <username> --all-variants --update
 flowchart TD
     CLI["insta.py\n(CLI entry point)"]
 
-    CLI -->|highlights| DL["downloader.py\nFetch slides from Instagram API\nResume / retry-failed / update"]
+    CLI -->|highlights| DL["downloader.py\nInstagram API, resume,\nretry-failed / update"]
     CLI -->|videos| VC["video_creator.py\nAssemble slides into MP4\nvia bundled ffmpeg"]
     CLI -->|youtube-meta| YM["youtube_meta.py\nGenerate title, description,\ntags, date, location JSON"]
     CLI -->|youtube-upload| YU["youtube_uploader.py\nOAuth2 upload to YouTube\nPlaylist management"]
     CLI -->|summary| SU["summarizer.py\nRebuild summary.json\nfrom metadata on disk"]
 
+    DL -->|--backend instagrapi| IG["instagrapi_downloader.py\nMobile-app emulation\nCursor-paginated tray"]
+
     DL -->|writes| FS["output/&lt;user&gt;/instagram/\n&lt;Highlight&gt;/\n  metadata.json\n  slide_01.mp4 / .jpg"]
+    IG -->|writes| FS
     DL --> OR["organizer.py\nFolder layout &amp; naming\nSlide dedup / .temp guard"]
+    IG --> OR
     DL --> SU
 
+    VA["variants.py\nportrait / landscape\nx full / short\nnaming for dirs, files,\ntitles, playlists"]
+    VA -.-> VC
+    VA -.-> YM
+    VA -.-> YU
+
     VC -->|reads| FS
-    VC -->|writes| VD["output/&lt;user&gt;/videos/\n&lt;Highlight&gt;.mp4"]
+    VC -->|writes| VD["output/&lt;user&gt;/videos*/\n&lt;Highlight&gt;&lt;suffix&gt;.mp4"]
 
     YM -->|reads| FS
-    YM -->|writes| YD["output/&lt;user&gt;/youtube/\n&lt;Highlight&gt;.json"]
+    YM -->|writes| YD["output/&lt;user&gt;/youtube*/\n&lt;Highlight&gt;&lt;suffix&gt;.json"]
 
     YU -->|reads| VD
     YU -->|reads/updates| YD

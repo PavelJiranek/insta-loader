@@ -29,12 +29,21 @@ Entry point: `insta.py` — all subcommands (`highlights`, `videos`, `youtube-me
 
 ```
 output/<username>/
-  instagram/              ← downloaded slides + metadata.json per highlight
-  videos/                 ← portrait MP4s
-  videos_landscape/       ← landscape MP4s (--landscape flag)
-  youtube/                ← YouTube metadata JSONs (portrait)
-  youtube_landscape/      ← YouTube metadata JSONs (landscape)
+  instagram/                  ← downloaded slides + metadata.json per highlight
+  videos/                     ← portrait, full length
+  videos_short/               ← portrait, static slides capped (--short)
+  videos_landscape/           ← landscape, full length (--landscape)
+  videos_landscape_short/     ← landscape + short
+  youtube/                    ← YouTube metadata JSONs, one dir per variant
+  youtube_short/
+  youtube_landscape/
+  youtube_landscape_short/
 ```
+
+Directory, filename, title and playlist naming for all four variants comes from
+`variants.Variant` — never hardcode these strings. The suffix scheme is additive
+(`_landscape`, `_short`, `_landscape_short`), so portrait-full keeps bare names.
+Only requested variants are created.
 
 ## Dev setup
 
@@ -49,6 +58,9 @@ pip install -r requirements-dev.txt
 Create `.env` for local runs:
 ```
 INSTA_LOGIN_USER=your_instagram_username
+INSTA_BACKEND=instagrapi   # optional: default download backend (instaloader | instagrapi)
+INSTA_SLEEP=5              # optional: seconds between slide downloads
+INSTA_SLEEP_JITTER=0.6     # optional: randomise that interval by ±60%
 ```
 
 Run tests:
