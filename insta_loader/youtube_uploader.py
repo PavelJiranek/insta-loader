@@ -11,6 +11,7 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from rich import print as rprint
 
+from insta_loader import variants
 from insta_loader.cli import YoutubeConfig
 
 SCOPES = ["https://www.googleapis.com/auth/youtube"]
@@ -184,16 +185,22 @@ def _delete_outdated(youtube, meta_files: list) -> None:
 
 
 def run(config: YoutubeConfig) -> None:
-    if config.both_formats:
+    wanted = variants.resolve(
+        landscape=config.landscape, short=config.short,
+        both_formats=config.both_formats, all_variants=config.all_variants,
+    )
+    if len(wanted) > 1:
         from dataclasses import replace
-        for landscape in (False, True):
-            rprint(f"\n[bold]━━ {'Landscape (16:9)' if landscape else 'Portrait'} ━━[/bold]")
-            run(replace(config, landscape=landscape, both_formats=False))
+        for variant in wanted:
+            rprint(f"\n[bold]━━ {variant.label} ━━[/bold]")
+            run(replace(config, landscape=variant.landscape, short=variant.short,
+                        both_formats=False, all_variants=False))
         return
+    variant = wanted[0]
 
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
-    youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
-    videos_dir = base / ("videos_landscape" if config.landscape else "videos")
+    youtube_dir = base / variant.youtube_dir
+    videos_dir = base / variant.videos_dir
 
     # Offer to auto-generate metadata for videos that have none yet
     missing = _check_missing_metadata(videos_dir, youtube_dir)
@@ -256,7 +263,7 @@ def run(config: YoutubeConfig) -> None:
             continue
 
         if playlist_id is None:
-            playlist_name = f"{config.playlist} · 16:9" if config.landscape else config.playlist
+            playlist_name = config.playlist + variant.title_suffix
             playlist_id = _get_or_create_playlist(youtube, playlist_name, config.privacy)
 
         rprint(f"[cyan]↑  {prefix} {title} — uploading…[/cyan]")

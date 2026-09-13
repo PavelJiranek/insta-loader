@@ -56,6 +56,9 @@ def main() -> None:
     vid.add_argument("--update", action="store_true", help="Re-encode only highlights that are newer than their existing video (and highlights with no video yet)")
     vid.add_argument("--landscape", action="store_true", help="Create 16:9 landscape videos with blurred+darkened background (outputs to videos_landscape/)")
     vid.add_argument("--both-formats", dest="both_formats", action="store_true", help="Create both portrait and landscape videos in one run")
+    vid.add_argument("--short", action="store_true", help="Short variant: cap static photo-with-music slides at --max-slide-duration; real video keeps its full length")
+    vid.add_argument("--all-variants", dest="all_variants", action="store_true", help="Create all four variants: portrait/landscape x full/short")
+    vid.add_argument("--max-slide-duration", dest="max_slide_duration", type=int, default=10, metavar="SECONDS", help="Cap for static slides in the short variant (default: 10)")
     vid.add_argument("--no-sleep", dest="no_sleep", action="store_true", help="Prevent macOS from sleeping during encoding (uses caffeinate)")
 
     summ = subparsers.add_parser("summary", help="Regenerate summary.json from downloaded slides on disk.")
@@ -69,6 +72,8 @@ def main() -> None:
     yt_meta.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status (default: unlisted)")
     yt_meta.add_argument("--landscape", action="store_true", help="Generate metadata for landscape videos in videos_landscape/ (writes to youtube_landscape/)")
     yt_meta.add_argument("--both-formats", dest="both_formats", action="store_true", help="Generate metadata for both portrait and landscape videos in one run")
+    yt_meta.add_argument("--short", action="store_true", help="Generate metadata for the short variant (reads videos[_landscape]_short/)")
+    yt_meta.add_argument("--all-variants", dest="all_variants", action="store_true", help="Generate metadata for all four variants")
 
     yt_upload = subparsers.add_parser("youtube-upload", help="Upload assembled MP4s as private YouTube videos.")
     yt_upload.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
@@ -80,6 +85,8 @@ def main() -> None:
     yt_upload.add_argument("--privacy", default="unlisted", choices=["unlisted", "private", "public"], help="YouTube privacy status for new uploads (default: unlisted)")
     yt_upload.add_argument("--landscape", action="store_true", help="Upload landscape videos from youtube_landscape/ metadata")
     yt_upload.add_argument("--both-formats", dest="both_formats", action="store_true", help="Upload both portrait and landscape videos in one run")
+    yt_upload.add_argument("--short", action="store_true", help="Upload the short variant (own playlist, suffixed with · Short)")
+    yt_upload.add_argument("--all-variants", dest="all_variants", action="store_true", help="Upload all four variants, each to its own playlist")
 
     args = parser.parse_args()
 
@@ -115,6 +122,9 @@ def main() -> None:
             update=args.update,
             landscape=args.landscape,
             both_formats=args.both_formats,
+            short=args.short,
+            all_variants=args.all_variants,
+            max_slide_duration=args.max_slide_duration,
             no_sleep=args.no_sleep,
         ))
 
@@ -129,6 +139,8 @@ def main() -> None:
             privacy=args.privacy,
             landscape=args.landscape,
             both_formats=args.both_formats,
+            short=args.short,
+            all_variants=args.all_variants,
         ))
 
     elif args.command == "youtube-upload":
@@ -143,6 +155,8 @@ def main() -> None:
             privacy=args.privacy,
             landscape=args.landscape,
             both_formats=args.both_formats,
+            short=args.short,
+            all_variants=args.all_variants,
         ))
 
 

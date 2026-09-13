@@ -1,5 +1,7 @@
 import glob as _glob
+import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -13,11 +15,70 @@ from rich import print as rprint
 from send2trash import send2trash
 
 from insta_loader import progress as prog
+from insta_loader import variants
 from insta_loader.cli import VideoConfig
 
 _FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
 
 _VIDEO_EXTS = {".mp4", ".mov", ".m4v", ".webm"}
+
+_DURATION_RE = re.compile(r"Duration:\s*(\d+):(\d+):(\d+\.?\d*)")
+_FPS_RE = re.compile(r",\s*([\d.]+)\s*fps")
+
+# Instagram exports a "photo + music" story as an mp4, usually at 1 fps. Those are
+# padding in an assembled reel, so the short variant caps them. Real video is left
+# alone. fps alone is only ~85% accurate (some 1 fps clips are genuine video), so it
+# is used purely as a cheap pre-filter before a definitive frame-identity check.
+_STATIC_FPS_THRESHOLD = 2.0
+
+_static_cache: dict = {}
+
+
+def _probe(path: Path) -> tuple:
+    """Return (duration_seconds, fps); either may be None if unreadable."""
+    out = subprocess.run([_FFMPEG, "-i", str(path)], capture_output=True).stderr.decode(
+        "utf-8", errors="replace"
+    )
+    d, f = _DURATION_RE.search(out), _FPS_RE.search(out)
+    duration = None
+    if d:
+        duration = int(d.group(1)) * 3600 + int(d.group(2)) * 60 + float(d.group(3))
+    return duration, (float(f.group(1)) if f else None)
+
+
+def _frame_hash(path: Path, ts: float) -> Optional[str]:
+    """md5 of a single frame decoded at `ts`, downscaled to 64x64."""
+    r = subprocess.run(
+        [_FFMPEG, "-ss", f"{ts}", "-i", str(path), "-frames:v", "1",
+         "-vf", "scale=64:64", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"],
+        capture_output=True,
+    )
+    return hashlib.md5(r.stdout).hexdigest() if r.stdout else None
+
+
+def _is_static(path: Path, duration: Optional[float], fps: Optional[float]) -> bool:
+    """True if the clip is a still image with audio (no visual motion)."""
+    if duration is None or fps is None or fps > _STATIC_FPS_THRESHOLD:
+        return False
+    key = str(path)
+    if key in _static_cache:
+        return _static_cache[key]
+    # Frames sit 1s apart at 1 fps, so keep >=1.5s margin from the end or the
+    # seek lands past the final frame and nothing decodes.
+    a = _frame_hash(path, 0.5)
+    b = _frame_hash(path, max(0.6, duration - 1.5))
+    mid = _frame_hash(path, duration / 2)
+    result = bool(a and b and mid and a == b == mid)
+    _static_cache[key] = result
+    return result
+
+
+def _trim_for(path: Path, cap: int) -> Optional[int]:
+    """Return the cap to apply to this video slide, or None to leave it untouched."""
+    duration, fps = _probe(path)
+    if duration is None or duration <= cap:
+        return None
+    return cap if _is_static(path, duration, fps) else None
 
 
 def _collect_slides(highlight_dir: Path, meta: Optional[dict] = None) -> list:
@@ -88,11 +149,11 @@ def _needs_update(highlight_dir: Path, video_path: Path) -> bool:
     )
 
 
-def _mark_youtube_outdated(base: Path, folder_name: str, landscape: bool = False) -> None:
-    """Set outdated=True in youtube[_landscape]/<stem>.json if previously uploaded."""
-    youtube_folder = "youtube_landscape" if landscape else "youtube"
-    stem = f"{folder_name}_landscape" if landscape else folder_name
-    meta_path = base / youtube_folder / f"{stem}.json"
+def _mark_youtube_outdated(base: Path, folder_name: str,
+                           variant: "variants.Variant" = None) -> None:
+    """Set outdated=True in the variant's youtube dir/<stem>.json if previously uploaded."""
+    variant = variant or variants.Variant()
+    meta_path = base / variant.youtube_dir / f"{variant.stem(folder_name)}.json"
     if not meta_path.exists():
         return
     meta = json.loads(meta_path.read_text())
@@ -134,8 +195,11 @@ def _has_audio(path: Path) -> bool:
     return b"Audio:" in result.stderr
 
 
-def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10, landscape: bool = False) -> Path:
+def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool, image_duration: int = 10, landscape: bool = False, trim_to: Optional[int] = None) -> Path:
     out = tmp_dir / f"clip_{index:03d}.mp4"
+    # Output-side -t truncates a video slide; image slides are already bounded by
+    # their input-side -t image_duration, so the caller clamps that instead.
+    trim = ["-t", str(trim_to)] if trim_to else []
     if landscape:
         if is_video:
             if _has_audio(slide_path):
@@ -145,6 +209,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     "-map", "[out]", "-map", "0:a",
                     *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
+                    *trim,
                     "-y", str(out),
                 ]
             else:
@@ -157,6 +222,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
                     "-shortest",
+                    *trim,
                     "-y", str(out),
                 ]
         else:
@@ -179,6 +245,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     "-vf", _VF,
                     *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
+                    *trim,
                     "-y", str(out),
                 ]
             else:
@@ -191,6 +258,7 @@ def _normalize_slide(slide_path: Path, index: int, tmp_dir: Path, is_video: bool
                     *_ENCODE_FLAGS,
                     "-c:a", "aac", "-ar", "44100",
                     "-shortest",
+                    *trim,
                     "-y", str(out),
                 ]
         else:
@@ -263,22 +331,22 @@ def run(config: VideoConfig) -> None:
         except FileNotFoundError:
             print("⚠  caffeinate not found — --no-sleep has no effect on this platform")
     try:
-        if config.both_formats:
-            formats = [False, True]
-        elif config.landscape:
-            formats = [True]
-        else:
-            formats = [False]
-        for landscape in formats:
-            if config.both_formats:
-                rprint(f"\n[bold]━━ {'Landscape (16:9)' if landscape else 'Portrait'} ━━[/bold]")
-            _encode(config, landscape)
+        wanted = variants.resolve(
+            landscape=config.landscape,
+            short=config.short,
+            both_formats=config.both_formats,
+            all_variants=config.all_variants,
+        )
+        for variant in wanted:
+            if len(wanted) > 1:
+                rprint(f"\n[bold]━━ {variant.label} ━━[/bold]")
+            _encode(config, variant)
     finally:
         if caffeinate is not None:
             caffeinate.terminate()
 
 
-def _encode(config: VideoConfig, landscape: bool) -> None:
+def _encode(config: VideoConfig, variant: "variants.Variant") -> None:
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     instagram_dir = base / "instagram"
     if not instagram_dir.exists():
@@ -296,8 +364,7 @@ def _encode(config: VideoConfig, landscape: bool) -> None:
     if config.highlight:
         highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
 
-    videos_dir_name = "videos_landscape" if landscape else "videos"
-    videos_dir = base / videos_dir_name
+    videos_dir = base / variant.videos_dir
     videos_dir.mkdir(exist_ok=True)
 
     # Resolve all conflicts before starting the progress bar so that
@@ -310,7 +377,7 @@ def _encode(config: VideoConfig, landscape: bool) -> None:
         if not slides:
             prog.log_video_skip(f"{title} — no valid slides, skipping")
             continue
-        stem = f"{hdir.name}_landscape" if landscape else hdir.name
+        stem = variant.stem(hdir.name)
         output_path = videos_dir / f"{stem}.mp4"
         if config.update:
             if not _needs_update(hdir, output_path):
@@ -340,11 +407,18 @@ def _encode(config: VideoConfig, landscape: bool) -> None:
             completed = False
             try:
                 clips = []
+                cap = config.max_slide_duration
                 for slide in slides:
+                    is_video = slide["type"] == "video"
+                    # In the short variant, cap static photo-with-music clips; real
+                    # video keeps its full length. Images are bounded by their duration.
+                    trim_to = _trim_for(slide["path"], cap) if (variant.short and is_video) else None
+                    image_duration = min(config.image_duration, cap) if variant.short else config.image_duration
                     clip = _normalize_slide(
-                        slide["path"], slide["index"], tmp_dir, slide["type"] == "video",
-                        config.image_duration,
-                        landscape=landscape,
+                        slide["path"], slide["index"], tmp_dir, is_video,
+                        image_duration,
+                        landscape=variant.landscape,
+                        trim_to=trim_to,
                     )
                     clips.append(clip)
                     prog.advance(progress, task_id, slide["path"].name)
@@ -356,7 +430,7 @@ def _encode(config: VideoConfig, landscape: bool) -> None:
                 progress.advance(overall)
                 print(f"✓  {output_path.name} — {len(slides)} slides, {m}m {s:02d}s")
                 if config.update:
-                    _mark_youtube_outdated(base, hdir.name, landscape=landscape)
+                    _mark_youtube_outdated(base, hdir.name, variant)
             except subprocess.CalledProcessError as e:
                 stderr = e.stderr.decode(errors="replace") if e.stderr else ""
                 print(f"✗  {title} — ffmpeg error\n{stderr}")

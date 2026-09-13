@@ -4,7 +4,9 @@ from pathlib import Path
 from unittest.mock import patch
 import pytest
 from insta_loader.cli import VideoConfig
+from insta_loader import video_creator
 from insta_loader.video_creator import _collect_slides, _resolve_conflict, _normalize_slide, _FFMPEG
+from insta_loader.variants import Variant
 
 def test_video_config_defaults():
     c = VideoConfig(username="natgeo")
@@ -70,6 +72,71 @@ def test_collect_slides_type_from_file_extension_overrides_stale_metadata(tmp_pa
 
     assert result[0]["type"] == "video"  # derived from .mp4, not metadata "image"
     assert result[1]["type"] == "image"  # derived from .jpg, not metadata "video"
+
+
+def test_is_static_false_for_normal_framerate(tmp_path):
+    # 30fps => real video, skipped by the cheap pre-filter without decoding frames
+    with patch("insta_loader.video_creator._frame_hash") as mock_fh:
+        assert video_creator._is_static(tmp_path / "a.mp4", 30.0, 30.0) is False
+        mock_fh.assert_not_called()
+
+
+def test_is_static_true_when_sampled_frames_identical(tmp_path):
+    video_creator._static_cache.clear()
+    with patch("insta_loader.video_creator._frame_hash", return_value="samehash"):
+        assert video_creator._is_static(tmp_path / "b.mp4", 40.0, 1.0) is True
+
+
+def test_is_static_false_when_frames_differ(tmp_path):
+    video_creator._static_cache.clear()
+    with patch("insta_loader.video_creator._frame_hash", side_effect=["h1", "h2", "h3"]):
+        assert video_creator._is_static(tmp_path / "c.mp4", 40.0, 1.0) is False
+
+
+def test_is_static_caches_result(tmp_path):
+    video_creator._static_cache.clear()
+    p = tmp_path / "d.mp4"
+    with patch("insta_loader.video_creator._frame_hash", return_value="x") as mock_fh:
+        video_creator._is_static(p, 40.0, 1.0)
+        video_creator._is_static(p, 40.0, 1.0)
+        assert mock_fh.call_count == 3  # 3 frames on first call only
+
+
+def test_trim_for_returns_none_when_shorter_than_cap(tmp_path):
+    with patch("insta_loader.video_creator._probe", return_value=(8.0, 1.0)):
+        assert video_creator._trim_for(tmp_path / "e.mp4", 10) is None
+
+
+def test_trim_for_returns_cap_for_long_static(tmp_path):
+    video_creator._static_cache.clear()
+    with patch("insta_loader.video_creator._probe", return_value=(45.0, 1.0)), \
+         patch("insta_loader.video_creator._frame_hash", return_value="same"):
+        assert video_creator._trim_for(tmp_path / "f.mp4", 10) == 10
+
+
+def test_trim_for_leaves_real_video_untouched(tmp_path):
+    video_creator._static_cache.clear()
+    with patch("insta_loader.video_creator._probe", return_value=(45.0, 30.0)):
+        assert video_creator._trim_for(tmp_path / "g.mp4", 10) is None
+
+
+def test_normalize_slide_adds_t_flag_when_trimming(tmp_path):
+    src = tmp_path / "clip.mp4"
+    src.touch()
+    with patch("insta_loader.video_creator.subprocess.run") as mock_run, \
+         patch("insta_loader.video_creator._has_audio", return_value=True):
+        _normalize_slide(src, 1, tmp_path, is_video=True, trim_to=10)
+    cmd = mock_run.call_args[0][0]
+    assert "-t" in cmd and cmd[cmd.index("-t") + 1] == "10"
+
+
+def test_normalize_slide_omits_t_flag_without_trim(tmp_path):
+    src = tmp_path / "clip.mp4"
+    src.touch()
+    with patch("insta_loader.video_creator.subprocess.run") as mock_run, \
+         patch("insta_loader.video_creator._has_audio", return_value=True):
+        _normalize_slide(src, 1, tmp_path, is_video=True, trim_to=None)
+    assert "-t" not in mock_run.call_args[0][0]
 
 
 def test_collect_slides_skips_missing_file(tmp_path):
@@ -524,7 +591,7 @@ def test_mark_youtube_outdated_landscape_writes_to_landscape_dir(tmp_path):
     meta = {"uploaded": True, "outdated": False, "youtube": {"title": "Test"}}
     (yt_dir / "Travel_landscape.json").write_text(json.dumps(meta))
 
-    _mark_youtube_outdated(tmp_path, "Travel", landscape=True)
+    _mark_youtube_outdated(tmp_path, "Travel", Variant(landscape=True))
 
     result = json.loads((yt_dir / "Travel_landscape.json").read_text())
     assert result["outdated"] is True
@@ -536,7 +603,7 @@ def test_mark_youtube_outdated_portrait_unchanged_by_landscape_param(tmp_path):
     meta = {"uploaded": True, "outdated": False}
     (yt_dir / "Travel.json").write_text(json.dumps(meta))
 
-    _mark_youtube_outdated(tmp_path, "Travel", landscape=True)
+    _mark_youtube_outdated(tmp_path, "Travel", Variant(landscape=True))
 
     result = json.loads((yt_dir / "Travel.json").read_text())
     assert result["outdated"] is False

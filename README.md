@@ -115,6 +115,9 @@ python3 insta.py videos <username> [options]
 | `--image-duration N` | Seconds each image slide is shown (default: 10) |
 | `--landscape` | Create 16:9 landscape videos with blurred+darkened background (saved to `videos_landscape/`) |
 | `--both-formats` | Create both portrait and landscape videos in one run |
+| `--short` | Short variant: cap **static** slides (photo-with-music) at `--max-slide-duration`; real video keeps full length |
+| `--all-variants` | Create all four variants: portrait/landscape × full/short |
+| `--max-slide-duration N` | Cap for static slides in the short variant (default: 10) |
 | `--no-sleep` | Prevent macOS from sleeping during encoding (uses `caffeinate`) |
 | `--output-dir DIR` | Override base directory |
 
@@ -144,6 +147,8 @@ python3 insta.py youtube-meta <username> [options]
 | `--privacy STATUS` | `unlisted` (default), `private`, or `public` |
 | `--landscape` | Generate metadata for landscape videos (reads `videos_landscape/`, writes `youtube_landscape/`) |
 | `--both-formats` | Generate metadata for both portrait and landscape videos in one run |
+| `--short` | Generate metadata for the short variant (titles get a `· Short` suffix) |
+| `--all-variants` | Generate metadata for all four variants |
 
 Titles and tags are auto-generated from folder names — flag emoji detection, camelCase splitting, part numbers, date ranges, country/continent tags.
 
@@ -161,6 +166,8 @@ python3 insta.py youtube-upload <username> [options]
 | `--update` | Delete outdated uploads (after confirmation) and re-upload |
 | `--landscape` | Upload landscape videos (reads `youtube_landscape/` metadata, uploads to a separate `· 16:9` playlist) |
 | `--both-formats` | Upload both portrait and landscape videos in one run |
+| `--short` | Upload the short variant to its own `· Short` playlist |
+| `--all-variants` | Upload all four variants, each to its own playlist |
 | `--playlist NAME` | Playlist to add videos to (default: `Story Highlights`) |
 | `--privacy STATUS` | `unlisted` (default), `private`, or `public` |
 | `--client-secrets PATH` | Path to OAuth secrets JSON |
@@ -228,6 +235,31 @@ python3 insta.py videos <username> --both-formats --update --no-sleep
 python3 insta.py youtube-meta <username> --both-formats
 python3 insta.py youtube-upload <username> --both-formats --update
 ```
+
+### Short variants
+
+Instagram exports a "photo + music" story as a video file — often 45–60s of a
+single still frame. `--short` caps those at 10s while leaving genuine video
+untouched, which trims roughly a third off a typical reel.
+
+```bash
+python3 insta.py videos <username> --both-formats --short --update
+```
+
+`--all-variants` produces all four outputs in one run:
+
+```bash
+python3 insta.py videos <username> --all-variants --update --no-sleep
+python3 insta.py youtube-meta <username> --all-variants
+python3 insta.py youtube-upload <username> --all-variants --update
+```
+
+| variant | directory | filename | playlist |
+|---|---|---|---|
+| portrait full | `videos/` | `Travel.mp4` | `Story Highlights` |
+| portrait short | `videos_short/` | `Travel_short.mp4` | `Story Highlights · Short` |
+| landscape full | `videos_landscape/` | `Travel_landscape.mp4` | `Story Highlights · 16:9` |
+| landscape short | `videos_landscape_short/` | `Travel_landscape_short.mp4` | `Story Highlights · 16:9 · Short` |
 
 ---
 

@@ -6,6 +6,7 @@ from typing import Optional
 
 import pycountry
 
+from insta_loader import variants
 from insta_loader.cli import YoutubeConfig
 from insta_loader.video_creator import _filter_highlights
 
@@ -394,7 +395,9 @@ def _resolve_location(place_name: str, country_codes: list) -> Optional[dict]:
     return {"latitude": latlon[0], "longitude": latlon[1]}
 
 
-def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: str = "unlisted", landscape: bool = False) -> dict:
+def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: str = "unlisted",
+                        variant: "variants.Variant" = None) -> dict:
+    variant = variant or variants.Variant()
     country_codes = _decode_flags(folder_name)
     flag_str = _extract_flag_str(folder_name)
     place_name, part_num = _parse_title(folder_name)
@@ -411,9 +414,7 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: 
         title_parts.append(f"· Part {part_num}")
     if date_str:
         title_parts.append(f"· {date_str}")
-    title = " ".join(title_parts)
-    if landscape:
-        title = f"{title} · 16:9"
+    title = " ".join(title_parts) + variant.title_suffix
 
     desc_main = f"{place_name} highlights" if place_name.strip() else "highlights"
     if part_num is not None:
@@ -422,9 +423,7 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: 
         desc_main += f" · {date_str}"
     description = f"{desc_main}\n\n@{username}"
 
-    video_subdir = "videos_landscape" if landscape else "videos"
-    video_stem = f"{folder_name}_landscape" if landscape else folder_name
-    video_path = str(Path("output") / username / video_subdir / f"{video_stem}.mp4")
+    video_path = str(Path("output") / username / variant.videos_dir / f"{variant.stem(folder_name)}.mp4")
     return {
         "highlight_folder": folder_name,
         "video_path": video_path,
@@ -459,12 +458,18 @@ def _write_meta(youtube_dir: Path, folder_name: str, meta: dict) -> bool:
 def run(config: YoutubeConfig) -> None:
     from rich import print as rprint
 
-    if config.both_formats:
+    wanted = variants.resolve(
+        landscape=config.landscape, short=config.short,
+        both_formats=config.both_formats, all_variants=config.all_variants,
+    )
+    if len(wanted) > 1:
         from dataclasses import replace
-        for landscape in (False, True):
-            rprint(f"\n[bold]━━ {'Landscape (16:9)' if landscape else 'Portrait'} ━━[/bold]")
-            run(replace(config, landscape=landscape, both_formats=False))
+        for variant in wanted:
+            rprint(f"\n[bold]━━ {variant.label} ━━[/bold]")
+            run(replace(config, landscape=variant.landscape, short=variant.short,
+                        both_formats=False, all_variants=False))
         return
+    variant = wanted[0]
 
     base = Path(config.output_dir) if config.output_dir else Path("output") / config.username
     instagram_dir = base / "instagram"
@@ -482,12 +487,12 @@ def run(config: YoutubeConfig) -> None:
     if config.highlight:
         highlight_dirs = _filter_highlights(config.highlight, highlight_dirs)
 
-    videos_dir = base / ("videos_landscape" if config.landscape else "videos")
-    youtube_dir = base / ("youtube_landscape" if config.landscape else "youtube")
+    videos_dir = base / variant.videos_dir
+    youtube_dir = base / variant.youtube_dir
 
     for hdir in highlight_dirs:
         folder_name = hdir.name
-        stem = f"{folder_name}_landscape" if config.landscape else folder_name
+        stem = variant.stem(folder_name)
         video_path = videos_dir / f"{stem}.mp4"
 
         if not video_path.exists():
@@ -496,13 +501,12 @@ def run(config: YoutubeConfig) -> None:
 
         meta_obj = json.loads((hdir / "metadata.json").read_text(encoding="utf-8"))
         slides = meta_obj.get("slides", [])
-        meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy, landscape=config.landscape)
-        json_stem = f"{folder_name}_landscape" if config.landscape else folder_name
-        written = _write_meta(youtube_dir, json_stem, meta)
+        meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy, variant)
+        written = _write_meta(youtube_dir, stem, meta)
 
         title = meta["youtube"]["title"]
         if written:
-            meta_path = youtube_dir / f"{json_stem}.json"
+            meta_path = youtube_dir / f"{stem}.json"
             rprint(f"[green]✓[/green]  {title} → {meta_path}")
         else:
             rprint(f"[dim]–  {title} skipped (already uploaded, not regenerating)[/dim]")

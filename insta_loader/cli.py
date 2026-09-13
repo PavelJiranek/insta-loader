@@ -22,6 +22,9 @@ class VideoConfig:
     update: bool = False
     landscape: bool = False
     both_formats: bool = False
+    short: bool = False
+    all_variants: bool = False
+    max_slide_duration: int = 10
     no_sleep: bool = False
 
 
@@ -36,3 +39,5 @@ class YoutubeConfig:
     privacy: str = "unlisted"
     landscape: bool = False
     both_formats: bool = False
+    short: bool = False
+    all_variants: bool = False

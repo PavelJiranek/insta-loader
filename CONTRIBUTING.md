@@ -22,6 +22,7 @@ Entry point: `insta.py` — all subcommands (`highlights`, `videos`, `youtube-me
 | `insta_loader/video_creator.py` | ffmpeg pipeline — normalise slides, concat, landscape mode |
 | `insta_loader/youtube_meta.py` | Build YouTube metadata JSON (title, tags, location, date) |
 | `insta_loader/youtube_uploader.py` | OAuth2 token management, upload, playlist management |
+| `insta_loader/variants.py` | Output variants (portrait/landscape × full/short) — directory, filename, and title naming |
 | `insta_loader/progress.py` | Rich progress bar helpers shared across commands |
 
 ## Output structure
@@ -105,6 +106,12 @@ Slides from ICC-profiled photos can have non-square sample aspect ratios (e.g. `
 
 **Why two download backends (instaloader + instagrapi)?**
 instaloader is the default and needs no login for public accounts. When Instagram soft-blocks its `highlights_tray` requests (a generic `200 OK "fail"` response), instagrapi's fuller mobile-app emulation often still works. The backend is selected at the top of `downloader.run()`; `instagrapi_downloader.run()` reuses `organizer`, `progress`, and `summarizer` so both backends produce identical on-disk output. The instaloader path is intentionally left untouched by the instagrapi branch to avoid regressions.
+
+**Why is static-slide detection two-stage?**
+Instagram exports a "photo + music" story as an MP4, usually at 1 fps, so it is indistinguishable from real video by file extension. Frame rate alone is not enough: measured against the full library, `fps <= 2` is only ~85% precise (about 15% of 1 fps clips are genuine video), and capping those would silently truncate real footage. So frame rate is used purely as a cheap pre-filter, followed by a definitive check that decodes frames at the start, middle, and end at 64×64 and compares hashes. `fps > 2` was 100% real motion in sampling, so those skip the check entirely. Results are memoised per path in `_static_cache` because `--all-variants` encodes the same slide four times.
+
+**Why does `variants.py` exist instead of more boolean flags?**
+Output naming is a product of orientation × length, and that product appears in four places (video dir, video filename, YouTube metadata dir, playlist/title suffix). A `Variant` value object keeps those consistent and makes adding a dimension cheap. The suffix scheme is deliberately additive (`_landscape`, `_short`, `_landscape_short`) so portrait-full and landscape-full keep the exact paths they had before short variants existed — no migration needed.
 
 **Why split `youtube/` and `youtube_landscape/`?**
 Keeps portrait and landscape upload states completely independent. Either can be uploaded, re-uploaded, or deleted without touching the other.
