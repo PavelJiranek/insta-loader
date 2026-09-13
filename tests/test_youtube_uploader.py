@@ -280,6 +280,49 @@ def test_run_both_formats_uploads_portrait_and_landscape(tmp_path):
     assert any("16:9" in p for p in playlists)
 
 
+def test_run_all_variants_uses_four_distinct_playlists(tmp_path):
+    """Each of the 4 variants uploads from its own dir to its own playlist."""
+    specs = [
+        ("videos", "youtube", "TestHL"),
+        ("videos_short", "youtube_short", "TestHL_short"),
+        ("videos_landscape", "youtube_landscape", "TestHL_landscape"),
+        ("videos_landscape_short", "youtube_landscape_short", "TestHL_landscape_short"),
+    ]
+    for vdir, ydir, stem in specs:
+        (tmp_path / vdir).mkdir()
+        (tmp_path / vdir / f"{stem}.mp4").touch()
+        _make_meta_file(tmp_path / ydir, stem,
+                        video_path=str(tmp_path / vdir / f"{stem}.mp4"))
+
+    secrets = tmp_path / "secrets.json"
+    secrets.touch()
+
+    playlists = []
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build"), \
+         patch("insta_loader.youtube_uploader._get_or_create_playlist",
+               side_effect=lambda yt, name, priv: playlists.append(name) or "PL"), \
+         patch("insta_loader.youtube_uploader._upload_video", return_value="vid"), \
+         patch("insta_loader.youtube_uploader._add_to_playlist"):
+        run_upload(YoutubeConfig(
+            username="test",
+            output_dir=str(tmp_path),
+            client_secrets=str(secrets),
+            all_variants=True,
+        ))
+
+    assert playlists == [
+        "Story Highlights",
+        "Story Highlights · Short",
+        "Story Highlights · 16:9",
+        "Story Highlights · 16:9 · Short",
+    ]
+    # every variant's metadata marked uploaded
+    for _, ydir, stem in specs:
+        meta = json.loads((tmp_path / ydir / f"{stem}.json").read_text())
+        assert meta["uploaded"] is True, f"{ydir}/{stem} not marked uploaded"
+
+
 def test_run_handles_api_error_and_continues(tmp_path, capsys):
     youtube_dir = tmp_path / "youtube"
     videos_dir = tmp_path / "videos"
