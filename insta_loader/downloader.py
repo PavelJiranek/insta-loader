@@ -23,6 +23,11 @@ def _session_path(username: str) -> str:
     return str(path / f"session-{username}")
 
 
+def _spec(item) -> tuple:
+    """(timestamp, ext) matching the filename instaloader writes for this item."""
+    return item.date_utc.strftime("%Y%m%d_%H%M%S"), ("mp4" if item.is_video else "jpg")
+
+
 def _resolve_highlight(query: str, all_highlights: list) -> list:
     exact = [h for h in all_highlights if h.title.lower() == query.lower()]
     if exact:
@@ -176,20 +181,28 @@ def run(config: Config) -> None:
                 meta_path = folder_path / "metadata.json"
                 if meta_path.exists():
                     existing = json.loads(meta_path.read_text())
-                    if existing.get("status") == "complete":
-                        items = list(reversed(list(highlight.get_items())))
-                        if len(items) == existing.get("total_items", 0):
-                            prog.log_video_skip(f"{highlight.title} — complete, skipping")
-                            continue
-                        prog.log_video_skip(
-                            f"{highlight.title} — {len(items)} slides on Instagram vs "
-                            f"{existing.get('total_items', '?')} stored, re-downloading"
-                        )
+                    items = list(reversed(list(highlight.get_items())))
+                    # Compare slide by slide, not just the count, so removals,
+                    # additions and reorders are caught even at the same total.
+                    if existing.get("status") == "complete" and organizer.in_sync(
+                        folder_path, highlight.title, [_spec(i) for i in items]
+                    ):
+                        prog.log_video_skip(f"{highlight.title} — up to date, skipping")
+                        continue
 
             if items is None:
                 items = list(reversed(list(highlight.get_items())))
+            if not items:
+                # Likely an API hiccup; syncing against it would trash every slide.
+                prog.log_video_skip(f"{highlight.title} — Instagram returned no slides, leaving local copy untouched")
+                continue
             task_id = prog.add_highlight_task(progress, highlight.title, len(items))
             folder = organizer.highlight_dir(base_dir, highlight.title)
+
+            if not config.retry_failed:
+                sync = organizer.sync_folder(folder, highlight.title, [_spec(i) for i in items])
+                if sync.changed:
+                    prog.log_resync(f"{highlight.title} — resynced with Instagram: {sync.summary()}")
 
             on_disk = 0
             newly_downloaded = 0

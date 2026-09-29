@@ -93,7 +93,7 @@ python3 insta.py highlights <username> [options]
 | Option | Description |
 |---|---|
 | `--highlight NAME` | Download only this highlight (partial name, case-insensitive) |
-| `--update` | Skip highlights already marked complete; re-download if the source has new slides |
+| `--update` | Skip highlights that match Instagram exactly; resync any where slides were added, removed or reordered (existing files are renamed into place, removed ones go to Trash, only new slides are downloaded) |
 | `--retry-failed` | Only retry highlights that have failed slides |
 | `--login-user USER` | Account to authenticate as (or set `INSTA_LOGIN_USER` in `.env`) |
 | `--backend {instaloader,instagrapi}` | Download backend (default: `instaloader`). Switch to `instagrapi` if Instagram soft-blocks the highlights API |

@@ -110,15 +110,16 @@ def _get_items(cl, pk: str) -> list:
     return sorted(info.items, key=lambda m: m.taken_at)
 
 
+def _spec(item) -> tuple:
+    """(timestamp, ext) that identifies this media's file on disk."""
+    ts = item.taken_at.strftime("%Y%m%d_%H%M%S")
+    return ts, ("mp4" if int(item.media_type) == 2 else "jpg")
+
+
 def _download_item(item, folder: Path, stem: str) -> None:
     """Download one media item to <folder>/<stem>_<YYYYMMDD_HHMMSS>.<ext>."""
-    ts = item.taken_at.strftime("%Y%m%d_%H%M%S")
-    if int(item.media_type) == 2:
-        url = str(item.video_url)
-        ext = "mp4"
-    else:
-        url = str(item.thumbnail_url)
-        ext = "jpg"
+    ts, ext = _spec(item)
+    url = str(item.video_url) if ext == "mp4" else str(item.thumbnail_url)
     out = folder / f"{stem}_{ts}.{ext}"
     tmp = folder / f"{stem}_{ts}.{ext}.temp"
     resp = requests.get(url, timeout=60)
@@ -185,20 +186,31 @@ def run(config: Config) -> None:
                 meta_path = folder_path / "metadata.json"
                 if meta_path.exists():
                     existing = json.loads(meta_path.read_text())
-                    if existing.get("status") == "complete":
-                        items = _get_items(cl, entry["pk"])
-                        if len(items) == existing.get("total_items", 0):
-                            prog.log_video_skip(f"{title} — complete, skipping")
-                            continue
-                        prog.log_video_skip(
-                            f"{title} — {len(items)} slides on Instagram vs "
-                            f"{existing.get('total_items', '?')} stored, re-downloading"
-                        )
+                    items = _get_items(cl, entry["pk"])
+                    # Compare what's on disk with what's on Instagram slide by
+                    # slide, not just the count: removals, additions and reorders
+                    # all show up here even when the total is unchanged.
+                    if existing.get("status") == "complete" and organizer.in_sync(
+                        folder_path, title, [_spec(m) for m in items]
+                    ):
+                        prog.log_video_skip(f"{title} — up to date, skipping")
+                        continue
 
             if items is None:
                 items = _get_items(cl, entry["pk"])
+            if not items:
+                # An empty response is far more likely to be an API hiccup than a
+                # highlight emptied on purpose. Syncing against it would move
+                # every local slide to Trash, so leave the folder alone.
+                prog.log_video_skip(f"{title} — Instagram returned no slides, leaving local copy untouched")
+                continue
             task_id = prog.add_highlight_task(progress, title, len(items))
             folder = organizer.highlight_dir(base_dir, title)
+
+            if not config.retry_failed:
+                sync = organizer.sync_folder(folder, title, [_spec(m) for m in items])
+                if sync.changed:
+                    prog.log_resync(f"{title} — resynced with Instagram: {sync.summary()}")
 
             on_disk = 0
             newly_downloaded = 0

@@ -69,3 +69,7 @@ def log_skip(filename: str) -> None:
 
 def log_video_skip(message: str) -> None:
     rprint(f"[dim]–  {message}[/dim]")
+
+
+def log_resync(message: str) -> None:
+    rprint(f"[yellow]↻  {message}[/yellow]")

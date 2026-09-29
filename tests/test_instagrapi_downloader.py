@@ -166,6 +166,85 @@ def test_highlight_not_found_exits_1(mock_auth, mock_fetch, mock_items,
 
 @patch("insta_loader.instagrapi_downloader.summarizer")
 @patch("insta_loader.instagrapi_downloader.prog")
+@patch("insta_loader.instagrapi_downloader._download_item")
+@patch("insta_loader.instagrapi_downloader._get_items")
+@patch("insta_loader.instagrapi_downloader._fetch_all_highlights")
+@patch("insta_loader.instagrapi_downloader._authenticate")
+def test_update_resyncs_after_slide_removed_on_instagram(
+        mock_auth, mock_fetch, mock_items, mock_dl, mock_prog, mock_summ, tmp_path):
+    """Real organizer: 3 slides on disk, the middle one deleted on Instagram."""
+    from insta_loader import organizer
+    mock_auth.return_value = MagicMock()
+    mock_fetch.return_value = [{"pk": "1", "title": "Travel"}]
+    a, b, c = make_media("a", day=1), make_media("b", day=2), make_media("c", day=3)
+    mock_items.return_value = [a, c]  # b removed
+
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
+    for idx, day in ((1, 1), (2, 2), (3, 3)):
+        (folder / f"Travel_{idx:02d}_202501{day:02d}_120000.jpg").write_bytes(str(day).encode())
+    (folder / "metadata.json").write_text(json.dumps({"status": "complete", "total_items": 3}))
+
+    trashed = []
+    with patch.object(organizer, "send2trash",
+                      side_effect=lambda p: (trashed.append(p), __import__("os").remove(p))):
+        igd.run(make_config(output_dir=str(tmp_path), update=True))
+
+    files = sorted(p.name for p in folder.iterdir() if p.suffix == ".jpg")
+    assert files == ["Travel_01_20250101_120000.jpg", "Travel_02_20250103_120000.jpg"]
+    assert (folder / "Travel_02_20250103_120000.jpg").read_bytes() == b"3"
+    assert len(trashed) == 1 and "20250102" in trashed[0]
+    mock_dl.assert_not_called()  # nothing new: everything reused by rename
+    meta = json.loads((folder / "metadata.json").read_text())
+    assert meta["total_items"] == 2 and meta["status"] == "complete"
+    mock_prog.log_resync.assert_called_once()
+
+
+@patch("insta_loader.instagrapi_downloader.summarizer")
+@patch("insta_loader.instagrapi_downloader.prog")
+@patch("insta_loader.instagrapi_downloader.organizer")
+@patch("insta_loader.instagrapi_downloader._download_item")
+@patch("insta_loader.instagrapi_downloader._get_items")
+@patch("insta_loader.instagrapi_downloader._fetch_all_highlights")
+@patch("insta_loader.instagrapi_downloader._authenticate")
+def test_empty_response_leaves_local_copy_untouched(
+        mock_auth, mock_fetch, mock_items, mock_dl, mock_org, mock_prog, mock_summ, tmp_path):
+    mock_auth.return_value = MagicMock()
+    mock_fetch.return_value = [{"pk": "1", "title": "Travel"}]
+    mock_items.return_value = []  # API hiccup
+
+    igd.run(make_config(output_dir=str(tmp_path)))
+
+    mock_org.sync_folder.assert_not_called()
+    mock_org.write_metadata.assert_not_called()
+    mock_dl.assert_not_called()
+
+
+@patch("insta_loader.instagrapi_downloader.summarizer")
+@patch("insta_loader.instagrapi_downloader.prog")
+@patch("insta_loader.instagrapi_downloader.organizer")
+@patch("insta_loader.instagrapi_downloader._download_item")
+@patch("insta_loader.instagrapi_downloader._get_items")
+@patch("insta_loader.instagrapi_downloader._fetch_all_highlights")
+@patch("insta_loader.instagrapi_downloader._authenticate")
+def test_retry_failed_does_not_resync(
+        mock_auth, mock_fetch, mock_items, mock_dl, mock_org, mock_prog, mock_summ, tmp_path):
+    mock_auth.return_value = MagicMock()
+    mock_fetch.return_value = [{"pk": "1", "title": "Travel"}]
+    mock_items.return_value = [make_media("1")]
+    folder = tmp_path / "instagram" / "Travel"
+    folder.mkdir(parents=True)
+    (folder / "metadata.json").write_text(json.dumps({"slides": [{"status": "failed"}]}))
+    mock_org.sanitize_name.return_value = "Travel"
+    mock_org.slide_exists.return_value = False
+
+    igd.run(make_config(output_dir=str(tmp_path), retry_failed=True))
+
+    mock_org.sync_folder.assert_not_called()
+
+
+@patch("insta_loader.instagrapi_downloader.summarizer")
+@patch("insta_loader.instagrapi_downloader.prog")
 @patch("insta_loader.instagrapi_downloader.organizer")
 @patch("insta_loader.instagrapi_downloader._download_item")
 @patch("insta_loader.instagrapi_downloader._get_items")

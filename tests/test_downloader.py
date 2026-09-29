@@ -333,6 +333,7 @@ def test_update_reprocesses_complete_highlight_with_new_slides(mock_il, mock_pro
     # API now returns 3 slides, but only 2 were stored
     mock_get_all.return_value = [make_mock_highlight("Travel", num_items=3)]
     mock_organizer.sanitize_name.return_value = "Travel"
+    mock_organizer.in_sync.return_value = False  # disk no longer matches Instagram
     mock_organizer.highlight_dir.return_value = tmp_path
     mock_organizer.slide_filename.return_value = "Travel_01"
     mock_organizer.slide_exists.return_value = False
