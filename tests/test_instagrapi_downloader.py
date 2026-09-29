@@ -265,3 +265,97 @@ def test_update_skips_complete_highlight(mock_auth, mock_fetch, mock_items, mock
     igd.run(make_config(output_dir=str(tmp_path), update=True))
 
     mock_dl.assert_not_called()
+
+
+# ── throttling of private-API calls ────────────────────────────────────────────
+
+def test_api_delay_is_jittered_around_api_sleep():
+    from insta_loader import downloader
+    with patch.object(downloader, "_API_SLEEP", 5.0), patch.object(downloader, "_SLEEP_JITTER", 0.6):
+        delays = [downloader._api_delay() for _ in range(200)]
+    assert all(2.0 <= d <= 8.0 for d in delays)
+    assert max(delays) - min(delays) > 1.0  # actually varies, not a fixed interval
+
+
+def test_api_delay_zero_when_disabled():
+    from insta_loader import downloader
+    with patch.object(downloader, "_API_SLEEP", 0.0):
+        assert downloader._api_delay() == 0.0
+
+
+def test_get_items_pauses_before_the_api_call(no_api_pause):
+    cl = MagicMock()
+    order = []
+    no_api_pause.side_effect = lambda: order.append("pause")
+    cl.highlight_info.side_effect = lambda pk: order.append("call") or MagicMock(items=[])
+    igd._get_items(cl, "pk")
+    assert order == ["pause", "call"]
+
+
+def test_fetch_all_highlights_pauses_before_every_page(no_api_pause):
+    cl = MagicMock()
+    cl.private_request.side_effect = [{"tray": [], "cursor": "next"}, {"tray": [], "cursor": None}]
+    with patch.object(igd, "_base_tray_params", return_value={}):
+        igd._fetch_all_highlights(cl, 1)
+    assert no_api_pause.call_count == 2
+
+
+# ── stopping cleanly when Instagram pushes back ────────────────────────────────
+
+def _blocked_run(err, tmp_path, capsys):
+    """Two highlights; listing the 2nd one's slides raises `err`."""
+    calls = {"n": 0}
+
+    def items(cl, pk):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise err
+        return [make_media("1")]
+
+    with patch.object(igd, "_authenticate", return_value=MagicMock()), \
+         patch.object(igd, "_fetch_all_highlights",
+                      return_value=[{"pk": "1", "title": "One"}, {"pk": "2", "title": "Two"}]), \
+         patch.object(igd, "_get_items", side_effect=items), \
+         patch.object(igd, "_download_item"), \
+         patch.object(igd, "summarizer") as summ, \
+         patch.object(igd, "prog"):
+        with pytest.raises(SystemExit) as exc:
+            igd.run(make_config(output_dir=str(tmp_path)))
+    return exc.value.code, summ, capsys.readouterr().out
+
+
+def test_forbidden_mid_run_stops_cleanly_and_keeps_progress(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    code, summ, out = _blocked_run(E.ClientForbiddenError("forbidden"), tmp_path, capsys)
+
+    assert code == 1
+    assert "rate-limiting" in out and "ClientForbiddenError" in out
+    assert "1/2 highlight(s) checked" in out
+    assert (tmp_path / "instagram" / "One" / "metadata.json").exists()  # finished one saved
+    assert not (tmp_path / "instagram" / "Two").exists()                # stopped before it
+    summ.run.assert_called_once()                                       # summary.json refreshed
+
+
+def test_login_required_mid_run_says_signed_out(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    code, _, out = _blocked_run(E.LoginRequired("login_required"), tmp_path, capsys)
+    assert code == 1
+    assert "signed this session out" in out
+
+
+def test_unrelated_errors_are_not_treated_as_blocks(tmp_path, capsys):
+    with pytest.raises(ValueError):
+        _blocked_run(ValueError("a real bug"), tmp_path, capsys)
+
+
+def test_challenge_at_login_exits_cleanly(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    fake = MagicMock()
+    fake.login.side_effect = E.ChallengeRequired("challenge_required")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=tmp_path / "none.json"), \
+         patch.object(igd.getpass, "getpass", return_value="pw"):
+        with pytest.raises(SystemExit) as exc:
+            igd._authenticate("someone")
+    assert exc.value.code == 1
+    assert "approve it" in capsys.readouterr().out

@@ -15,6 +15,26 @@ from insta_loader.cli import Config
 _SLEEP = float(os.environ.get("INSTA_SLEEP", "0"))
 _SLEEP_JITTER = float(os.environ.get("INSTA_SLEEP_JITTER", "0.5"))  # ± multiplier
 
+# INSTA_SLEEP spaces out media downloads, which are CDN fetches. The private-API
+# calls that list a highlight's slides are what Instagram actually rate-limits,
+# and --update makes one per highlight back to back, so they always get a gap:
+# INSTA_API_SLEEP if set, otherwise INSTA_SLEEP with a 2s floor.
+_API_SLEEP = float(os.environ.get("INSTA_API_SLEEP", max(_SLEEP, 2.0)))
+
+
+def _api_delay() -> float:
+    """Seconds to wait before a private-API call, jittered like downloads."""
+    if _API_SLEEP <= 0:
+        return 0.0
+    jitter = random.uniform(-_API_SLEEP * _SLEEP_JITTER, _API_SLEEP * _SLEEP_JITTER)
+    return max(0.1, _API_SLEEP + jitter)
+
+
+def _api_pause() -> None:
+    delay = _api_delay()
+    if delay:
+        time.sleep(delay)
+
 
 def _session_path(username: str) -> str:
     # Always use ~/.config/instaloader/ so the session persists across processes.
@@ -181,6 +201,7 @@ def run(config: Config) -> None:
                 meta_path = folder_path / "metadata.json"
                 if meta_path.exists():
                     existing = json.loads(meta_path.read_text())
+                    _api_pause()
                     items = list(reversed(list(highlight.get_items())))
                     # Compare slide by slide, not just the count, so removals,
                     # additions and reorders are caught even at the same total.
@@ -191,6 +212,7 @@ def run(config: Config) -> None:
                         continue
 
             if items is None:
+                _api_pause()
                 items = list(reversed(list(highlight.get_items())))
             if not items:
                 # Likely an API hiccup; syncing against it would trash every slide.

@@ -21,6 +21,7 @@ import requests
 from insta_loader import organizer
 from insta_loader import progress as prog
 from insta_loader import summarizer
+from insta_loader import downloader as _dl
 from insta_loader.cli import Config
 from insta_loader.downloader import _SLEEP, _SLEEP_JITTER
 
@@ -48,14 +49,20 @@ def _authenticate(login_user: str):
             cl.get_timeline_feed()  # cheap authenticated call to validate the session
             return cl
         except Exception:
-            print("⚠  Saved instagrapi session invalid — logging in.")
+            print("⚠  Saved session is no longer valid (Instagram signed it out).")
+            print("   If that happened in the last few hours, logging straight back in can")
+            print("   get the account flagged again. Press Ctrl+C now and try later.")
 
     password = getpass.getpass(f"Instagram password for {login_user}: ")
     try:
-        cl.login(login_user, password)
-    except TwoFactorRequired:
-        code = input("2FA code: ").strip()
-        cl.login(login_user, password, verification_code=code)
+        try:
+            cl.login(login_user, password)
+        except TwoFactorRequired:
+            code = input("2FA code: ").strip()
+            cl.login(login_user, password, verification_code=code)
+    except _blocked_errors() as e:
+        _report_block(e, {"checked": 0, "total": 0})
+        sys.exit(1)
     settings.parent.mkdir(parents=True, exist_ok=True)
     cl.dump_settings(settings)
     print(f"✓  Logged in and saved session to {settings}")
@@ -90,6 +97,7 @@ def _fetch_all_highlights(cl, user_id: int) -> list:
         params = _base_tray_params(cl)
         if cursor:
             params["cursor"] = cursor
+        _dl._api_pause()
         result = cl.private_request(f"highlights/{user_id}/highlights_tray/", params=params)
         for item in result.get("tray", []):
             raw_id = item.get("id", "")
@@ -106,6 +114,7 @@ def _fetch_all_highlights(cl, user_id: int) -> list:
 
 def _get_items(cl, pk: str) -> list:
     """Return a highlight's media items sorted oldest-first (slide 01 = oldest)."""
+    _dl._api_pause()  # one private-API call per highlight: the call Instagram throttles
     info = cl.highlight_info(pk)
     return sorted(info.items, key=lambda m: m.taken_at)
 
@@ -128,6 +137,38 @@ def _download_item(item, folder: Path, stem: str) -> None:
     tmp.rename(out)
 
 
+def _blocked_errors() -> tuple:
+    """instagrapi errors meaning Instagram is pushing back on this session.
+
+    Continuing after one of these only digs the hole deeper, so the run stops.
+    """
+    from instagrapi import exceptions as E
+
+    return (E.LoginRequired, E.ClientLoginRequired, E.ChallengeRequired,
+            E.ClientForbiddenError, E.PleaseWaitFewMinutes, E.RateLimitError,
+            E.ClientThrottledError, E.FeedbackRequired)
+
+
+def _report_block(err: Exception, state: dict) -> None:
+    from instagrapi import exceptions as E
+
+    if isinstance(err, (E.LoginRequired, E.ClientLoginRequired)):
+        what = "Instagram signed this session out (login_required)."
+    elif isinstance(err, E.ChallengeRequired):
+        what = ("Instagram wants this login confirmed (challenge_required). "
+                "Open the Instagram app on your phone and approve it.")
+    else:
+        what = f"Instagram is rate-limiting requests ({type(err).__name__})."
+    print(f"\n✗  {what}")
+    if state["total"]:
+        print("   Stopped here so it doesn't get worse. "
+              f"{state['checked']}/{state['total']} highlight(s) checked this run; "
+              "everything that finished is saved.")
+        print("   Wait a few hours, then re-run with --update: finished highlights are skipped.")
+    else:
+        print("   Wait a few hours before trying again.")
+
+
 def run(config: Config) -> None:
     if not config.login_user:
         print("✗  The instagrapi backend requires authentication. "
@@ -135,15 +176,29 @@ def run(config: Config) -> None:
         sys.exit(1)
 
     cl = _authenticate(config.login_user)
-
+    state = {"checked": 0, "total": 0}
     try:
+        _run(cl, config, state)
+    except _blocked_errors() as e:
+        _report_block(e, state)
+        summarizer.run(config.username, config.output_dir)
+        sys.exit(1)
+
+
+def _run(cl, config: Config, state: dict) -> None:
+    try:
+        _dl._api_pause()
         user_id = int(cl.user_id_from_username(config.username))
+    except _blocked_errors():
+        raise
     except Exception as e:
         print(f"✗  Could not resolve @{config.username}: {e}")
         sys.exit(1)
 
     try:
         entries = _fetch_all_highlights(cl, user_id)
+    except _blocked_errors():
+        raise
     except Exception as e:
         print(f"✗  Instagram returned an error fetching highlights: {e}")
         print("   This is usually a temporary server-side block. Wait a few minutes and try again.")
@@ -163,9 +218,11 @@ def run(config: Config) -> None:
 
     base_dir = config.output_dir or f"output/{config.username}"
     print(f"✓  @{config.username} — {len(entries)} highlight(s) to download\n")
+    state["total"] = len(entries)
 
     with prog.create_progress() as progress:
-        for entry in entries:
+        for n, entry in enumerate(entries):
+            state["checked"] = n
             title = entry["title"]
             items = None
 

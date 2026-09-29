@@ -61,6 +61,7 @@ INSTA_LOGIN_USER=your_instagram_username
 INSTA_BACKEND=instagrapi   # optional: default download backend (instaloader | instagrapi)
 INSTA_SLEEP=5              # optional: seconds between slide downloads
 INSTA_SLEEP_JITTER=0.6     # optional: randomise that interval by ±60%
+INSTA_API_SLEEP=5          # optional: seconds between Instagram API calls (default INSTA_SLEEP, min 2)
 ```
 
 Run tests:
@@ -118,6 +119,12 @@ Slides from ICC-profiled photos can have non-square sample aspect ratios (e.g. `
 
 **Why two download backends (instaloader + instagrapi)?**
 instaloader is the default and needs no login for public accounts. When Instagram soft-blocks its `highlights_tray` requests (a generic `200 OK "fail"` response), instagrapi's fuller mobile-app emulation often still works. The backend is selected at the top of `downloader.run()`; `instagrapi_downloader.run()` reuses `organizer`, `progress`, and `summarizer` so both backends produce identical on-disk output. The instaloader path is intentionally left untouched by the instagrapi branch to avoid regressions.
+
+**Why are API calls throttled separately from downloads?**
+Downloads are CDN fetches; the calls that list the tray and each highlight's slides go to Instagram's private API, which is what gets rate-limited and flagged. `INSTA_SLEEP` originally only fired after each downloaded file, so `--update` fired one private-API call per highlight back to back with no gap. That pattern got a session revoked. Every private-API call now goes through `downloader._api_pause()` (`INSTA_API_SLEEP`, default `INSTA_SLEEP` with a 2s floor, jittered). Tests never sleep: `conftest.py` patches `_api_pause` for every test, so check timing through `_api_delay()` or the `no_api_pause` fixture.
+
+**Why does a blocked run stop instead of skipping the highlight?**
+Once Instagram answers with `login_required`, a challenge, a 403 or a rate-limit error, every further call makes the flag worse. The instagrapi backend treats `_blocked_errors()` as fatal: it stops at the highlight it was on, refreshes `summary.json`, and exits 1 with a message saying which kind of push-back it was. Nothing is half-written, because these errors can only arise from the listing call made before a highlight's downloads start, and metadata is written as each highlight completes. Other exceptions are deliberately not caught here, so real bugs still surface with a traceback.
 
 **How does `highlights --update` know a highlight changed?**
 It compares the folder with Instagram slide by slide (`organizer.in_sync`), not by count, and on any difference `organizer.sync_folder` rearranges the folder. A file is identified by the `_<YYYYMMDD_HHMMSS>.<ext>` taken-at stamp in its name, which is written from the media itself at download time and is UTC in both backends. The stored index and `mediaid` are deliberately *not* trusted for this: an index-based update after a reorder could record new IDs against old files, so metadata can be wrong while filenames stay truthful. Sync reuses files by renaming (two-phase, via `.sync-*` staging names that don't match any slide stem, so a crash can't make a slot look filled), trashes files whose media is gone, and leaves missing positions for the normal download loop. Each backend builds the `(timestamp, ext)` spec with its own `_spec()`, which must stay in step with how that backend names downloaded files. An empty slide list from Instagram skips the highlight rather than syncing against it.

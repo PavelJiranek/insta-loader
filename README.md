@@ -284,6 +284,8 @@ python3 insta.py youtube-upload <username> --all-variants --update
 - Only **public** accounts are supported without login. Private accounts require `--login-user`.
 - YouTube free quota: ~6 uploads/day unverified, ~100/day after phone verification.
 - Add `INSTA_SLEEP=3` to `.env` to pause ~3 seconds between slide downloads if rate-limited. The delay is randomised by ±50% by default to avoid fixed-interval detection patterns. Override the jitter with `INSTA_SLEEP_JITTER=0.3` (0 = no jitter, 1 = ±100%).
+- Instagram API calls (listing highlights and each highlight's slides) are spaced out separately, because they are what Instagram actually rate-limits: `INSTA_API_SLEEP` seconds between them (default: `INSTA_SLEEP`, at least 2s), with the same jitter. `--update` makes one such call per highlight, so expect a full update of ~150 highlights to spend roughly `150 × INSTA_API_SLEEP` seconds waiting.
+- If Instagram pushes back (signed out, rate-limited, or asking you to confirm the login in the app), the run stops at once with a plain message instead of carrying on and making it worse. Everything that finished is saved; re-run with `--update` a few hours later.
 - Partial downloads resume automatically — already-downloaded slides are never re-fetched.
 - Interrupted downloads leave `.temp` files which are ignored and safely re-downloaded.
 
