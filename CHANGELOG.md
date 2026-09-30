@@ -32,6 +32,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Buy Me a Coffee badge and terminal screenshot in README
 
 ### Changed
+- **Python 3.10+ is now required** (was 3.9+), because instagrapi 3.x requires it. Existing installs should run `pip install -U -r requirements.txt`: instagrapi versions before 3.0.16 can no longer log in.
 - `videos --update`: skipped highlights now print `✓ <title> — up to date` in green
 - `INSTA_SLEEP` default example raised from 2 s to 3 s in docs (jitter makes effective range 1.5–4.5 s)
 - Output folder restructured: all downloaded content now lives under `output/<user>/instagram/`, assembled videos under `output/<user>/videos/`, YouTube metadata under `output/<user>/youtube/`

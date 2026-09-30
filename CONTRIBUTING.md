@@ -2,7 +2,7 @@
 
 ## Project overview
 
-`insta-loader` is a Python 3.9+ CLI tool that:
+`insta-loader` is a Python 3.10+ CLI tool (instagrapi 3.x requires 3.10) that:
 1. Downloads Instagram story highlights via the instaloader library
 2. Assembles slides (images + video clips) into MP4s using bundled ffmpeg
 3. Uploads assembled videos to YouTube via OAuth2
@@ -50,7 +50,7 @@ Only requested variants are created.
 ```bash
 git clone https://github.com/PavelJiranek/insta-loader.git
 cd insta-loader
-python3.9 -m venv venv
+python3 -m venv venv   # any Python 3.10+
 source venv/bin/activate
 pip install -r requirements-dev.txt
 ```
@@ -69,7 +69,7 @@ Run tests:
 python -m pytest -q
 ```
 
-**Important:** always run tests via the venv Python — the project uses Python 3.9, and the system Python may be a different version.
+**Important:** always run tests via the venv Python — the system Python may be a different version, or lack the project's dependencies. The code keeps `Optional[...]`-style annotations rather than `X | None`.
 
 ## Test conventions
 
@@ -126,6 +126,15 @@ Downloads are CDN fetches; the calls that list the tray and each highlight's sli
 **Why does a blocked run stop instead of skipping the highlight?**
 Once Instagram answers with `login_required`, a challenge, a 403 or a rate-limit error, every further call makes the flag worse. The instagrapi backend treats `_blocked_errors()` as fatal: it stops at the highlight it was on, refreshes `summary.json`, and exits 1 with a message saying which kind of push-back it was. Nothing is half-written, because these errors can only arise from the listing call made before a highlight's downloads start, and metadata is written as each highlight completes. Other exceptions are deliberately not caught here, so real bugs still surface with a traceback.
 
+**How does instagrapi login work, and what are the traps?** (learned the hard way)
+- `login()` returns `True` *without logging in* whenever `user_id` is set, and loading a saved session sets it, even a revoked one. `_reset_session_keep_device()` clears the session before a password login. Without that, the tool reports "Logged in" while never sending the password.
+- The reset keeps the device UUIDs and hardware but moves to the library's current app version. Instagram refuses logins from app versions it considers out of date, and instagrapi 3.x keeps a saved version it still recognises. To Instagram this reads as the same phone with the app updated. A new device model under the same IDs would look far odder.
+- instagrapi 3.x logs in through Instagram's modern flow first, and on failure follows Instagram's instruction to fall back to the legacy endpoint. For some accounts that endpoint answers **"Your version of Instagram is out of date"** before it checks anything else. That hides the real reason. A **wrong password** produces exactly this message, and so does the account-specific refusal in instagrapi #2807. Check the password before assuming the latter; `import-session` is the way round the latter.
+- Every failed or fresh login is a strong bot signal, so the tool never retries logins on its own.
+
+**Why does a re-upload regenerate some metadata but not all?**
+A re-encoded video (marked `outdated`) must not be re-uploaded with a title built from the old slides, such as a stale date range. `youtube_meta.refresh_meta()` regenerates everything derived from the highlight (title, description, tags, recording date, location) and carries over what belongs to the existing YouTube video: `youtube_id` (needed to delete it), `uploaded` / `outdated` / `youtube_url` / `upload_error`, and the `privacy_status` chosen at upload. `youtube-upload --update` calls it right after deleting each outdated video, so it works without running `youtube-meta` first; `youtube-meta` also refreshes outdated entries via `_write_meta()`.
+
 **How does `highlights --update` know a highlight changed?**
 It compares the folder with Instagram slide by slide (`organizer.in_sync`), not by count, and on any difference `organizer.sync_folder` rearranges the folder. A file is identified by the `_<YYYYMMDD_HHMMSS>.<ext>` taken-at stamp in its name, which is written from the media itself at download time and is UTC in both backends. The stored index and `mediaid` are deliberately *not* trusted for this: an index-based update after a reorder could record new IDs against old files, so metadata can be wrong while filenames stay truthful. Sync reuses files by renaming (two-phase, via `.sync-*` staging names that don't match any slide stem, so a crash can't make a slot look filled), trashes files whose media is gone, and leaves missing positions for the normal download loop. Each backend builds the `(timestamp, ext)` spec with its own `_spec()`, which must stay in step with how that backend names downloaded files. An empty slide list from Instagram skips the highlight rather than syncing against it.
 
@@ -145,7 +154,8 @@ Keeps portrait and landscape upload states completely independent. Either can be
 | Instagram session | `~/.config/instaloader/session-<user>` | Reusable login cookie |
 | YouTube client secrets | `~/.config/instaloader/youtube_client_secrets.json` | OAuth app credentials |
 | YouTube token | `~/.config/instaloader/youtube_token.json` | OAuth access/refresh token |
+| instagrapi session | `~/.config/instaloader/instagrapi-settings-<user>.json` | Login session plus emulated device identity (instagrapi backend) |
 
-All three are outside the repo or covered by `.gitignore`. Token files are written with `chmod 600`.
+All of these are outside the repo or covered by `.gitignore`. Token and session files are written with `chmod 600`.
 
 The instagrapi session (`~/.config/instaloader/instagrapi-settings-<user>.json`) is also owner-only; always save it through `_save_settings()`, never `dump_settings()` directly. It can come from a password login or from `import-session`, which takes a browser `sessionid` cookie. That value is stored in the URL-encoded form Chrome shows (`<digits>%3A…`), which is also what instagrapi saves from a real login; `_normalize_sessionid()` re-encodes a decoded paste. Never log or print it.

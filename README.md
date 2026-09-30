@@ -19,12 +19,16 @@ A command-line tool to back up your own story highlights from Instagram, assembl
 
 ## Requirements
 
-- Python 3.9+
+- Python 3.10+ (required by instagrapi 3.x)
 - No system ffmpeg required — bundled via `imageio-ffmpeg`
 
 ```bash
 pip install -r requirements.txt
 ```
+
+Updating an existing install? Run `pip install -U -r requirements.txt`. Older instagrapi
+versions (before 3.0.16) can no longer log in: Instagram rejects the app version they
+present as "out of date".
 
 ---
 
@@ -40,7 +44,9 @@ INSTA_LOGIN_USER=your_instagram_username
 #INSTA_BACKEND=instagrapi
 ```
 
-On first run you will be prompted for your password. The session is saved to `~/.config/instaloader/` and reused on subsequent runs.
+On first run you will be prompted for your password (and a 2FA code if enabled). The session is saved, owner-only, to `~/.config/instaloader/` and reused on subsequent runs. If Instagram refuses the password login, use [`import-session`](#import-session--log-in-via-your-browser-instagrapi-backend) to reuse your browser's session instead.
+
+If a login fails with *"Your version of Instagram is out of date"*, first make sure the password is right: Instagram reports a wrong password with that same message.
 
 ---
 
@@ -325,7 +331,8 @@ flowchart TD
     CLI -->|youtube-upload| YU["youtube_uploader.py\nOAuth2 upload to YouTube\nPlaylist management"]
     CLI -->|summary| SU["summarizer.py\nRebuild summary.json\nfrom metadata on disk"]
 
-    DL -->|--backend instagrapi| IG["instagrapi_downloader.py\nMobile-app emulation\nCursor-paginated tray"]
+    DL -->|--backend instagrapi| IG["instagrapi_downloader.py\nMobile-app emulation\nCursor-paginated tray\nThrottled API calls, clean stop"]
+    CLI -->|import-session| IG
 
     DL -->|writes| FS["output/&lt;user&gt;/instagram/\n&lt;Highlight&gt;/\n  metadata.json\n  slide_01.mp4 / .jpg"]
     IG -->|writes| FS
