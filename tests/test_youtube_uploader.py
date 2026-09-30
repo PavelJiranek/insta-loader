@@ -561,3 +561,33 @@ def test_run_landscape_exits_when_no_landscape_dir(tmp_path):
             client_secrets=str(secrets),
             landscape=True,
         ))
+
+
+def test_delete_outdated_refreshes_stale_title_before_reupload(tmp_path, monkeypatch, capsys):
+    """Regression: re-encoded highlight re-uploaded with its old date range in the title."""
+    hl = tmp_path / "instagram" / "Travel"
+    hl.mkdir(parents=True)
+    (hl / "metadata.json").write_text(json.dumps({"highlight_title": "Travel", "slides": [
+        {"date_utc": "2026-01-10T00:00:00Z", "status": "downloaded"},
+        {"date_utc": "2026-09-05T00:00:00Z", "status": "downloaded"},  # added later
+    ]}))
+    youtube_dir = tmp_path / "youtube"
+    youtube_dir.mkdir()
+    meta_path = youtube_dir / "Travel.json"
+    meta_path.write_text(json.dumps({
+        "highlight_folder": "Travel", "uploaded": True, "outdated": True,
+        "youtube_id": "vid1", "youtube_url": "u",
+        "youtube": {"title": "Travel · Jan–Mar 2026", "privacy_status": "private"},
+    }))
+    youtube = MagicMock()
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+
+    _delete_outdated(youtube, [meta_path], tmp_path, "someone")
+
+    updated = json.loads(meta_path.read_text())
+    assert updated["youtube"]["title"] == "Travel · Jan–Sep 2026"
+    assert updated["youtube"]["privacy_status"] == "private"  # choice kept
+    assert updated["uploaded"] is False and updated["youtube_id"] is None
+    youtube.videos().delete.assert_called_with(id="vid1")  # old video still found by id
+    out = " ".join(capsys.readouterr().out.split())  # Rich wraps long lines
+    assert "re-uploading as 'Travel · Jan–Sep 2026'" in out

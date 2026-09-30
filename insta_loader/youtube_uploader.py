@@ -13,6 +13,7 @@ from rich import print as rprint
 
 from insta_loader import variants
 from insta_loader.cli import YoutubeConfig
+from insta_loader.youtube_meta import refresh_meta
 
 SCOPES = ["https://www.googleapis.com/auth/youtube"]
 TOKEN_PATH = Path.home() / ".config" / "instaloader" / "youtube_token.json"
@@ -149,8 +150,14 @@ def _check_missing_metadata(videos_dir: Path, youtube_dir: Path) -> list:
     )
 
 
-def _delete_outdated(youtube, meta_files: list) -> None:
-    """Find uploaded+outdated metadata, confirm with user, delete from YouTube, reset flags."""
+def _delete_outdated(youtube, meta_files: list, base: Optional[Path] = None,
+                     username: Optional[str] = None, variant=None) -> None:
+    """Find uploaded+outdated metadata, confirm with user, delete from YouTube, reset flags.
+
+    With base and username given, each entry's title, description, tags, date and
+    location are also regenerated from the highlight on disk, so the re-upload
+    doesn't carry a title from before the re-encode (e.g. a stale date range).
+    """
     outdated = [
         (mp, json.loads(mp.read_text(encoding="utf-8")))
         for mp in meta_files
@@ -174,12 +181,19 @@ def _delete_outdated(youtube, meta_files: list) -> None:
         try:
             youtube.videos().delete(id=meta["youtube_id"]).execute()
             current = json.loads(mp.read_text(encoding="utf-8"))
+            if base is not None and username:
+                try:
+                    current = refresh_meta(current, base, username, variant)
+                except FileNotFoundError:
+                    pass  # highlight folder gone: keep the metadata we have
             current["uploaded"] = False
             current["youtube_id"] = None
             current["youtube_url"] = None
             current["outdated"] = False
             mp.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
-            rprint(f"[green]✓[/green]  Deleted '{title}' from YouTube")
+            new_title = current["youtube"]["title"]
+            renamed = f" (re-uploading as '{new_title}')" if new_title != title else ""
+            rprint(f"[green]✓[/green]  Deleted '{title}' from YouTube{renamed}")
         except Exception as e:
             rprint(f"[red]✗  Failed to delete '{title}': {e}[/red]")
 
@@ -228,7 +242,7 @@ def run(config: YoutubeConfig) -> None:
 
     # Handle --update: delete outdated uploads first, then reload
     if config.update:
-        _delete_outdated(youtube, all_meta_files)
+        _delete_outdated(youtube, all_meta_files, base, config.username, variant)
         all_meta_files = list(youtube_dir.glob("*.json"))
 
     # Apply highlight filter

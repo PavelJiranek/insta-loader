@@ -179,7 +179,7 @@ python3 insta.py youtube-upload <username> [options]
 | Option | Description |
 |---|---|
 | `--highlight NAME` | Upload only this highlight |
-| `--update` | Delete outdated uploads (after confirmation) and re-upload |
+| `--update` | Delete outdated uploads (after confirmation) and re-upload them, with title, description and tags regenerated from the current highlight |
 | `--landscape` | Upload landscape videos (reads `youtube_landscape/` metadata, uploads to a separate `· 16:9` playlist) |
 | `--both-formats` | Upload both portrait and landscape videos in one run |
 | `--short` | Upload the short variant to its own `· Short` playlist |

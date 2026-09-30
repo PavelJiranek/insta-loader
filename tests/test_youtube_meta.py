@@ -399,3 +399,43 @@ def test_run_landscape_skips_when_no_landscape_video(tmp_path, capsys):
 
     assert not (tmp_path / "youtube_landscape").exists()
     assert "no video" in capsys.readouterr().out.lower()
+
+
+def test_write_meta_refreshes_outdated_upload_keeping_state(tmp_path):
+    (tmp_path / "Test.json").write_text(json.dumps({
+        "highlight_folder": "Test", "uploaded": True, "outdated": True,
+        "youtube_id": "abc", "youtube_url": "https://y/abc",
+        "youtube": {"title": "Test · Jan–Mar 2026", "privacy_status": "private"},
+    }))
+    fresh = {"highlight_folder": "Test", "uploaded": False, "youtube_id": None,
+             "youtube_url": None, "outdated": False,
+             "youtube": {"title": "Test · Jan–Sep 2026", "privacy_status": "unlisted"}}
+
+    assert _write_meta(tmp_path, "Test", fresh) is True
+    got = json.loads((tmp_path / "Test.json").read_text())
+    assert got["youtube"]["title"] == "Test · Jan–Sep 2026"   # regenerated
+    assert got["youtube"]["privacy_status"] == "private"      # kept
+    assert (got["uploaded"], got["outdated"], got["youtube_id"]) == (True, True, "abc")
+
+
+def test_write_meta_still_skips_current_upload(tmp_path):
+    (tmp_path / "Test.json").write_text(json.dumps({
+        "uploaded": True, "outdated": False, "youtube": {"title": "keep me"}}))
+    assert _write_meta(tmp_path, "Test", {"youtube": {"title": "new"}}) is False
+    assert json.loads((tmp_path / "Test.json").read_text())["youtube"]["title"] == "keep me"
+
+
+def test_run_meta_reports_refresh(tmp_path, capsys):
+    _make_highlight(tmp_path, "Travel")
+    (tmp_path / "videos").mkdir()
+    (tmp_path / "videos" / "Travel.mp4").touch()
+    (tmp_path / "youtube").mkdir()
+    (tmp_path / "youtube" / "Travel.json").write_text(json.dumps({
+        "highlight_folder": "Travel", "uploaded": True, "outdated": True, "youtube_id": "x",
+        "youtube": {"title": "old", "privacy_status": "unlisted"}}))
+
+    run_meta(YoutubeConfig(username="testuser", output_dir=str(tmp_path)))
+
+    out = capsys.readouterr().out
+    assert "refreshed" in out
+    assert json.loads((tmp_path / "youtube" / "Travel.json").read_text())["youtube"]["title"] != "old"

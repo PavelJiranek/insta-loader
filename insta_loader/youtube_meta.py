@@ -443,14 +443,57 @@ def _build_youtube_meta(folder_name: str, slides: list, username: str, privacy: 
     }
 
 
+# These belong to the video already on YouTube, not to the highlight's content,
+# so regenerating metadata keeps them: youtube-upload --update needs the id to
+# delete the old video, and privacy is whatever was chosen at upload time.
+_UPLOAD_STATE_KEYS = ("uploaded", "youtube_id", "youtube_url", "outdated", "upload_error")
+
+
+def _keep_upload_state(existing: dict, fresh: dict) -> dict:
+    """Fresh generated metadata, carrying over upload state and privacy from existing."""
+    merged = dict(fresh)
+    for key in _UPLOAD_STATE_KEYS:
+        if key in existing:
+            merged[key] = existing[key]
+    privacy = (existing.get("youtube") or {}).get("privacy_status")
+    if privacy:
+        merged["youtube"] = {**merged["youtube"], "privacy_status": privacy}
+    return merged
+
+
+def refresh_meta(existing: dict, base: Path, username: str,
+                 variant: "variants.Variant" = None) -> dict:
+    """Regenerate title, description, tags, date and location from the highlight as
+    it is on disk now, keeping upload state and privacy. Used when a video has been
+    re-encoded (marked outdated) so the re-upload doesn't reuse a stale title."""
+    folder = existing["highlight_folder"]
+    hl = json.loads((base / "instagram" / folder / "metadata.json").read_text(encoding="utf-8"))
+    fresh = _build_youtube_meta(folder, hl.get("slides", []), username, variant=variant)
+    return _keep_upload_state(existing, fresh)
+
+
+def _is_outdated_upload(meta_path: Path) -> bool:
+    if not meta_path.exists():
+        return False
+    existing = json.loads(meta_path.read_text(encoding="utf-8"))
+    return bool(existing.get("uploaded") and existing.get("outdated"))
+
+
 def _write_meta(youtube_dir: Path, folder_name: str, meta: dict) -> bool:
-    """Write JSON file. Returns False (skipped) if already uploaded, True otherwise."""
+    """Write JSON file. Returns False (skipped) if uploaded and current, True otherwise.
+
+    An upload marked outdated (its video was re-encoded) is rewritten with fresh
+    generated fields but its upload state kept, so the replacement gets a correct
+    title while youtube-upload --update can still delete the old video.
+    """
     youtube_dir.mkdir(parents=True, exist_ok=True)
     meta_path = youtube_dir / f"{folder_name}.json"
     if meta_path.exists():
         existing = json.loads(meta_path.read_text(encoding="utf-8"))
         if existing.get("uploaded"):
-            return False
+            if not existing.get("outdated"):
+                return False
+            meta = _keep_upload_state(existing, meta)
     meta_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
     return True
 
@@ -502,11 +545,15 @@ def run(config: YoutubeConfig) -> None:
         meta_obj = json.loads((hdir / "metadata.json").read_text(encoding="utf-8"))
         slides = meta_obj.get("slides", [])
         meta = _build_youtube_meta(folder_name, slides, config.username, config.privacy, variant)
+        meta_path = youtube_dir / f"{stem}.json"
+        refreshing = _is_outdated_upload(meta_path)
         written = _write_meta(youtube_dir, stem, meta)
 
         title = meta["youtube"]["title"]
-        if written:
-            meta_path = youtube_dir / f"{stem}.json"
+        if written and refreshing:
+            rprint(f"[yellow]↻[/yellow]  {title} → {meta_path} "
+                   "(refreshed; youtube-upload --update will replace the video)")
+        elif written:
             rprint(f"[green]✓[/green]  {title} → {meta_path}")
         else:
             rprint(f"[dim]–  {title} skipped (already uploaded, not regenerating)[/dim]")
