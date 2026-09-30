@@ -372,7 +372,8 @@ def test_revoked_session_does_a_real_login_keeping_device(tmp_path):
     fake.get_timeline_feed.side_effect = Exception("login_required")
     fake.get_settings.return_value = {
         "uuids": {"uuid": "U", "phone_id": "P"},
-        "device_settings": {"model": "M"},
+        "device_settings": {"model": "M", "app_version": "428.0.0.47.67",
+                            "version_code": "961145276", "bloks_versioning_id": "old"},
         "authorization_data": {"ds_user_id": "1"},
     }
     with patch("instagrapi.Client", return_value=fake), \
@@ -380,11 +381,14 @@ def test_revoked_session_does_a_real_login_keeping_device(tmp_path):
          patch.object(igd.getpass, "getpass", return_value="pw"):
         igd._authenticate("me")
 
+    from instagrapi import config as ig_config
     order = [c[0] for c in fake.method_calls]
     assert order.index("set_settings") < order.index("login")  # cleared first
     fake.set_settings.assert_called_once_with({})
     fake.set_uuids.assert_called_once_with({"uuid": "U", "phone_id": "P"})  # same device
-    fake.set_device.assert_called_once_with({"model": "M"})
+    fake.set_device.assert_called_once_with({"model": "M"})  # hardware only, stale app dropped
+    fake.set_app.assert_called_once_with(ig_config.DEFAULT_APP_VERSION)  # app "updated"
+    assert order.index("set_app") < order.index("set_user_agent") < order.index("login")
     fake.login.assert_called_once_with("me", "pw")
 
 

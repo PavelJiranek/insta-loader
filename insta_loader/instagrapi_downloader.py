@@ -32,6 +32,35 @@ def _settings_path(username: str) -> Path:
     return path / f"instagrapi-settings-{username}.json"
 
 
+_APP_KEYS = ("app_version", "version_code", "bloks_versioning_id")
+
+
+def _reset_session_keep_device(cl) -> None:
+    """Drop a dead session so login() really logs in, as the same phone.
+
+    A dead session loaded from disk still sets user_id, and instagrapi's login()
+    returns True early whenever user_id is set, without sending the password.
+    So the session state is cleared first. The device IDs and hardware are kept,
+    so Instagram sees the same phone signing back in, not a brand-new device.
+
+    The app version is the one thing that is deliberately not kept. Instagram
+    rejects logins from app versions it considers out of date ("Your version of
+    Instagram is out of date"), and set_device() would keep a saved version it
+    still recognises. Moving to the library's current version reads as the same
+    phone with the app updated, which is what a real phone does.
+    """
+    from instagrapi import config as ig_config
+
+    old = cl.get_settings()
+    cl.set_settings({})
+    cl.set_uuids(old.get("uuids", {}))
+    hardware = {k: v for k, v in (old.get("device_settings") or {}).items() if k not in _APP_KEYS}
+    if hardware:
+        cl.set_device(hardware)
+    cl.set_app(ig_config.DEFAULT_APP_VERSION)
+    cl.set_user_agent()
+
+
 def _authenticate(login_user: str):
     """Return a logged-in instagrapi Client, reusing a saved session when possible."""
     from instagrapi import Client
@@ -52,15 +81,7 @@ def _authenticate(login_user: str):
             print("⚠  Saved session is no longer valid (Instagram signed it out).")
             print("   If that happened in the last few hours, logging straight back in can")
             print("   get the account flagged again. Press Ctrl+C now and try later.")
-            # The dead session still sets user_id, and instagrapi's login()
-            # returns True early whenever user_id is set, without ever sending
-            # the password. Drop the session but keep the device identity, so
-            # Instagram sees the same phone logging back in, not a new device.
-            old = cl.get_settings()
-            cl.set_settings({})
-            cl.set_uuids(old.get("uuids", {}))
-            if old.get("device_settings"):
-                cl.set_device(old["device_settings"])
+            _reset_session_keep_device(cl)
 
     password = getpass.getpass(f"Instagram password for {login_user}: ")
     try:
