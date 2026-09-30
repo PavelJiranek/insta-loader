@@ -200,6 +200,28 @@ Token is cached at `~/.config/instaloader/youtube_token.json` after first login.
 
 ---
 
+### `import-session` — log in via your browser (instagrapi backend)
+
+If password login fails with *"Your version of Instagram is out of date"* (Instagram
+refuses password logins from third-party clients for some accounts, notably ones with
+2FA), log in on instagram.com in your browser and hand that session to the tool:
+
+1. In Chrome, open **instagram.com** and make sure you're logged in.
+2. Open DevTools (**⌥⌘I** on macOS, **Ctrl+Shift+I** elsewhere) → **Application** tab →
+   **Storage → Cookies → https://www.instagram.com**.
+3. Click the **`sessionid`** row and copy its **Cookie Value** (starts with your numeric account ID).
+4. Run the command below and paste the value at the hidden prompt:
+
+```bash
+python3 insta.py import-session <your_username>
+```
+
+The value is as powerful as your password: paste it only into this prompt, never into
+chats or files. The tool checks it belongs to `<your_username>` before saving it, owner-only,
+to `~/.config/instaloader/`. Logging out of instagram.com in that browser ends the session.
+
+---
+
 ### `summary` — regenerate summary
 
 ```bash

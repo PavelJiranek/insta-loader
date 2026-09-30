@@ -61,6 +61,15 @@ def main() -> None:
     vid.add_argument("--max-slide-duration", dest="max_slide_duration", type=int, default=10, metavar="SECONDS", help="Cap for static slides in the short variant (default: 10)")
     vid.add_argument("--no-sleep", dest="no_sleep", action="store_true", help="Prevent macOS from sleeping during encoding (uses caffeinate)")
 
+    imp = subparsers.add_parser(
+        "import-session",
+        help="Log in by pasting the sessionid cookie from a browser (instagrapi backend).",
+        description="Use when Instagram refuses password logins from this tool. Log in on "
+                    "instagram.com in your browser, copy the 'sessionid' cookie value, and paste "
+                    "it at the hidden prompt.",
+    )
+    imp.add_argument("username", help="Your Instagram username (the account you logged in as)")
+
     summ = subparsers.add_parser("summary", help="Regenerate summary.json from downloaded slides on disk.")
     summ.add_argument("username", help="Instagram username (without @)")
     summ.add_argument("--output-dir", dest="output_dir", help="Base directory (default: output/<username>/)")
@@ -127,6 +136,10 @@ def main() -> None:
             max_slide_duration=args.max_slide_duration,
             no_sleep=args.no_sleep,
         ))
+
+    elif args.command == "import-session":
+        from insta_loader.instagrapi_downloader import import_session
+        import_session(args.username)
 
     elif args.command == "summary":
         run_summary(args.username, args.output_dir)

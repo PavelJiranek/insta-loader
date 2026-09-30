@@ -61,10 +61,77 @@ def _reset_session_keep_device(cl) -> None:
     cl.set_user_agent()
 
 
+def _save_settings(cl, settings: Path) -> None:
+    """Persist the session; it holds a live login token, so owner-only access."""
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    cl.dump_settings(settings)
+    settings.chmod(0o600)
+
+
+def _normalize_sessionid(raw: str) -> str:
+    """Return the sessionid in the URL-encoded form instagrapi stores.
+
+    Chrome shows the cookie value encoded (digits%3A...), which is also the form
+    instagrapi saves from a real login, so that passes through unchanged. A
+    decoded value (digits:...) is re-encoded to match.
+    """
+    value = raw.strip().strip('"')
+    if "%3A" not in value.upper() and ":" in value:
+        value = value.replace(":", "%3A")
+    return value
+
+
+def import_session(login_user: str) -> None:
+    """Log in by reusing a session from a browser instead of a password login.
+
+    For accounts where Instagram refuses password logins from this tool
+    ("Your version of Instagram is out of date"; instagrapi issue #2807,
+    seen on 2FA accounts). The login itself happens in the browser, as a normal
+    human login; this only installs the resulting sessionid cookie. Keeps the
+    saved device identity, like a password re-login does.
+    """
+    from instagrapi import Client
+
+    cl = Client()
+    settings = _settings_path(login_user)
+    if settings.exists():
+        try:
+            cl.load_settings(settings)
+        except Exception:
+            pass
+        _reset_session_keep_device(cl)
+
+    print("Paste the value of the 'sessionid' cookie from instagram.com (input is hidden).")
+    sessionid = _normalize_sessionid(getpass.getpass("sessionid: "))
+    if not sessionid[:1].isdigit() or len(sessionid) <= 30:
+        print("✗  That doesn't look like a sessionid value: it should be a long string "
+              "starting with your account's numeric ID. Nothing was saved.")
+        sys.exit(1)
+
+    try:
+        cl.login_by_sessionid(sessionid)
+    except _blocked_errors() as e:
+        _report_block(e, {"checked": 0, "total": 0})
+        sys.exit(1)
+    except Exception as e:
+        print(f"✗  Instagram didn't accept that session ({type(e).__name__}). "
+              "Check you're still logged in on instagram.com and copy the value again. "
+              "Nothing was saved.")
+        sys.exit(1)
+
+    if (cl.username or "").lower() != login_user.lower():
+        print(f"✗  That session belongs to @{cl.username}, not @{login_user}. Nothing was saved.")
+        sys.exit(1)
+
+    _save_settings(cl, settings)
+    print(f"✓  Imported browser session for @{cl.username} -> {settings}")
+    print("   Stay logged in on instagram.com in that browser: logging out there ends this session.")
+
+
 def _authenticate(login_user: str):
     """Return a logged-in instagrapi Client, reusing a saved session when possible."""
     from instagrapi import Client
-    from instagrapi.exceptions import TwoFactorRequired
+    from instagrapi.exceptions import TwoFactorRequired, UnknownError
 
     cl = Client()
     settings = _settings_path(login_user)
@@ -93,8 +160,15 @@ def _authenticate(login_user: str):
     except _blocked_errors() as e:
         _report_block(e, {"checked": 0, "total": 0})
         sys.exit(1)
-    settings.parent.mkdir(parents=True, exist_ok=True)
-    cl.dump_settings(settings)
+    except UnknownError as e:
+        if "out of date" not in str(e).lower():
+            raise
+        print("\n✗  Instagram is refusing password logins from this tool for your account")
+        print("   (\"Your version of Instagram is out of date\"; a known instagrapi issue that")
+        print("   hits 2FA accounts). Log in on instagram.com in your browser instead and")
+        print(f"   import that session:  python3 insta.py import-session {login_user}")
+        sys.exit(1)
+    _save_settings(cl, settings)
     print(f"✓  Logged in and saved session to {settings}")
     return cl
 

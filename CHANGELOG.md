@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `import-session <username>` command: log in by pasting the `sessionid` cookie from a browser where you're logged into instagram.com, instead of a password login. For accounts where Instagram refuses password logins from the tool with "Your version of Instagram is out of date" (instagrapi issue #2807, seen on 2FA accounts). The login happens in the browser as a normal human login. The tool checks the session belongs to the named account, keeps the saved device identity, and stores the value owner-only. A failed password login with that error now points to this command instead of printing a traceback.
 - `INSTA_API_SLEEP` env var: seconds to wait before each Instagram API call (default `INSTA_SLEEP`, minimum 2s), separate from the download pause.
 - `--backend {instaloader,instagrapi}` flag on `highlights` (default: `instaloader`, or `INSTA_BACKEND` from `.env`) — alternative download backend built on [instagrapi](https://github.com/subzeroid/instagrapi), which emulates the mobile app more completely (persistent device fingerprint, consistent UUIDs) and gets through the `highlights_tray` endpoint when instaloader receives a generic `"fail"` response. Output is byte-compatible (same slide filenames and `metadata.json`), so downstream `videos`/`youtube-*` commands are unaffected. The instagrapi backend paginates the highlights tray past its 100-item page cap and stores its session at `~/.config/instaloader/instagrapi-settings-<user>.json`.
 - `INSTA_BACKEND` env var — sets the default download backend without passing `--backend` each run (the project default remains `instaloader` when unset).
@@ -57,6 +58,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **`.temp` files counted as valid slides**: glob patterns now exclude `*.temp` files in slide existence checks
 
 ### Security
+- instagrapi session file (`~/.config/instaloader/instagrapi-settings-<user>.json`) is now written owner-only (`chmod 600`). It holds a live login token and was previously world-readable.
 - Username validated against Instagram's allowed character set (`[a-zA-Z0-9._]{1,30}`) at CLI entry to prevent path traversal
 - Highlight folder names sanitised: leading dots stripped, control characters removed, empty result replaced with `unnamed`
 - `slide['filename']` directory components stripped before glob to prevent metadata-tampering escapes

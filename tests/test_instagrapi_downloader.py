@@ -1,3 +1,4 @@
+from pathlib import Path
 import json
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
@@ -401,3 +402,95 @@ def test_valid_saved_session_is_reused_without_login(tmp_path):
         assert igd._authenticate("me") is fake
     fake.login.assert_not_called()
     fake.set_settings.assert_not_called()
+
+
+# ── import-session (browser sessionid) ─────────────────────────────────────────
+
+ENC_SID = "1118595057%3AabcdefghijklmnopqrstuvwxyzABCD%3A12%3AAYxyz"
+
+
+def _import(tmp_path, pasted, username="me", login_side_effect=None):
+    fake = MagicMock()
+    fake.username = username
+    if login_side_effect:
+        fake.login_by_sessionid.side_effect = login_side_effect
+    settings = tmp_path / "s.json"
+    fake.dump_settings.side_effect = lambda p: Path(p).write_text("{}")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=settings), \
+         patch.object(igd.getpass, "getpass", return_value=pasted):
+        igd.import_session("me")
+    return fake, settings
+
+
+def test_import_session_saves_owner_only(tmp_path):
+    fake, settings = _import(tmp_path, ENC_SID)
+    fake.login_by_sessionid.assert_called_once_with(ENC_SID)  # encoded form passed as-is
+    assert settings.exists()
+    assert (settings.stat().st_mode & 0o777) == 0o600
+
+
+def test_import_session_reencodes_a_decoded_value(tmp_path):
+    fake, _ = _import(tmp_path, ENC_SID.replace("%3A", ":"))
+    fake.login_by_sessionid.assert_called_once_with(ENC_SID)
+
+
+def test_import_session_strips_whitespace_and_quotes(tmp_path):
+    fake, _ = _import(tmp_path, f'  "{ENC_SID}"\n')
+    fake.login_by_sessionid.assert_called_once_with(ENC_SID)
+
+
+def test_import_session_rejects_garbage_without_calling_instagram(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        fake, settings = _import(tmp_path, "hello")
+    assert "Nothing was saved" in capsys.readouterr().out
+    assert not (tmp_path / "s.json").exists()
+
+
+def test_import_session_refuses_another_accounts_cookie(tmp_path, capsys):
+    with pytest.raises(SystemExit):
+        _import(tmp_path, ENC_SID, username="someone_else")
+    out = capsys.readouterr().out
+    assert "belongs to @someone_else" in out and "Nothing was saved" in out
+    assert not (tmp_path / "s.json").exists()
+
+
+def test_import_session_rejected_by_instagram_saves_nothing(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    with pytest.raises(SystemExit):
+        _import(tmp_path, ENC_SID, login_side_effect=E.LoginRequired("login_required"))
+    assert not (tmp_path / "s.json").exists()
+
+
+def test_password_login_out_of_date_points_to_import_session(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    fake = MagicMock()
+    fake.login.side_effect = E.UnknownError(
+        message="Your version of Instagram is out of date. Please upgrade your app to log in to Instagram.")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=tmp_path / "none.json"), \
+         patch.object(igd.getpass, "getpass", return_value="pw"):
+        with pytest.raises(SystemExit) as exc:
+            igd._authenticate("me")
+    assert exc.value.code == 1
+    assert "python3 insta.py import-session me" in capsys.readouterr().out
+
+
+def test_other_unknown_errors_still_raise(tmp_path):
+    from instagrapi import exceptions as E
+    fake = MagicMock()
+    fake.login.side_effect = E.UnknownError(message="something else entirely")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=tmp_path / "none.json"), \
+         patch.object(igd.getpass, "getpass", return_value="pw"):
+        with pytest.raises(E.UnknownError):
+            igd._authenticate("me")
+
+
+def test_cli_import_session_dispatches():
+    import sys
+    with patch("insta_loader.instagrapi_downloader.import_session") as m:
+        sys.argv = ["insta.py", "import-session", "paveljjiranek"]
+        import insta
+        insta.main()
+    m.assert_called_once_with("paveljjiranek")

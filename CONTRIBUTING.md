@@ -147,3 +147,5 @@ Keeps portrait and landscape upload states completely independent. Either can be
 | YouTube token | `~/.config/instaloader/youtube_token.json` | OAuth access/refresh token |
 
 All three are outside the repo or covered by `.gitignore`. Token files are written with `chmod 600`.
+
+The instagrapi session (`~/.config/instaloader/instagrapi-settings-<user>.json`) is also owner-only; always save it through `_save_settings()`, never `dump_settings()` directly. It can come from a password login or from `import-session`, which takes a browser `sessionid` cookie. That value is stored in the URL-encoded form Chrome shows (`<digits>%3A…`), which is also what instagrapi saves from a real login; `_normalize_sessionid()` re-encodes a decoded paste. Never log or print it.
