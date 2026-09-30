@@ -498,6 +498,8 @@ def test_run_update_resets_outdated_then_uploads(tmp_path):
          patch("insta_loader.youtube_uploader.build") as mock_build, \
          patch("builtins.input", return_value="y"), \
          patch("insta_loader.youtube_uploader._get_or_create_playlist", return_value="PL1"), \
+         patch("insta_loader.youtube_uploader._find_playlist", return_value="PL1"), \
+         patch("insta_loader.youtube_uploader._remove_from_playlist") as mock_remove, \
          patch("insta_loader.youtube_uploader._upload_video", return_value="new_id"), \
          patch("insta_loader.youtube_uploader._add_to_playlist"):
         mock_yt = MagicMock()
@@ -513,6 +515,7 @@ def test_run_update_resets_outdated_then_uploads(tmp_path):
     updated = json.loads(meta_path.read_text())
     assert updated["uploaded"] is True
     assert updated["youtube_id"] == "new_id"
+    mock_remove.assert_called_once_with(mock_yt, "PL1", "old_id")
 
 
 def test_run_landscape_reads_from_youtube_landscape_dir(tmp_path, capsys):
@@ -591,3 +594,111 @@ def test_delete_outdated_refreshes_stale_title_before_reupload(tmp_path, monkeyp
     youtube.videos().delete.assert_called_with(id="vid1")  # old video still found by id
     out = " ".join(capsys.readouterr().out.split())  # Rich wraps long lines
     assert "re-uploading as 'Travel · Jan–Sep 2026'" in out
+
+
+# ── playlist placeholders ("Deleted video") ────────────────────────────────────
+
+from insta_loader.youtube_uploader import (  # noqa: E402
+    _find_playlist, _remove_from_playlist, _dead_playlist_entries, prune,
+)
+
+
+def _paged(yt_resource, pages):
+    """Make resource().list(...).execute() return `pages` and list_next end them."""
+    yt_resource.list.return_value.execute.side_effect = pages
+    nexts = [MagicMock() for _ in pages[1:]] + [None]
+    for n, page in zip(nexts[:-1], pages[1:]):
+        n.execute.return_value = page
+    yt_resource.list_next.side_effect = nexts
+
+
+def test_find_playlist_returns_id_without_creating():
+    yt = MagicMock()
+    yt.playlists().list.return_value.execute.return_value = {
+        "items": [{"id": "PL9", "snippet": {"title": "Story Highlights · Short"}}]}
+    yt.playlists().list_next.return_value = None
+    assert _find_playlist(yt, "story highlights · short") == "PL9"
+    assert _find_playlist(yt, "Nope") is None
+    yt.playlists().insert.assert_not_called()
+
+
+def test_remove_from_playlist_filters_by_video_and_deletes_each_entry():
+    yt = MagicMock()
+    yt.playlistItems().list.return_value.execute.return_value = {"items": [{"id": "i1"}, {"id": "i2"}]}
+    assert _remove_from_playlist(yt, "PL", "vid") == 2
+    yt.playlistItems().list.assert_called_with(part="id", playlistId="PL", videoId="vid", maxResults=50)
+    yt.playlistItems().delete.assert_any_call(id="i1")
+    yt.playlistItems().delete.assert_any_call(id="i2")
+
+
+def test_delete_outdated_removes_from_playlist_before_deleting_video(tmp_path, monkeypatch):
+    mp = tmp_path / "Travel.json"
+    mp.write_text(json.dumps({"highlight_folder": "Travel", "uploaded": True, "outdated": True,
+                              "youtube_id": "old", "youtube": {"title": "Travel"}}))
+    yt = MagicMock()
+    order = []
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    with patch("insta_loader.youtube_uploader._find_playlist", return_value="PL"), \
+         patch("insta_loader.youtube_uploader._remove_from_playlist",
+               side_effect=lambda *a: order.append("remove")):
+        yt.videos().delete.side_effect = lambda **kw: order.append("delete") or MagicMock()
+        _delete_outdated(yt, [mp], playlist_name="Story Highlights")
+    assert order == ["remove", "delete"]
+
+
+def test_delete_outdated_still_deletes_when_playlist_removal_fails(tmp_path, monkeypatch, capsys):
+    mp = tmp_path / "Travel.json"
+    mp.write_text(json.dumps({"highlight_folder": "Travel", "uploaded": True, "outdated": True,
+                              "youtube_id": "old", "youtube": {"title": "Travel"}}))
+    yt = MagicMock()
+    monkeypatch.setattr("builtins.input", lambda _: "y")
+    with patch("insta_loader.youtube_uploader._find_playlist", return_value="PL"), \
+         patch("insta_loader.youtube_uploader._remove_from_playlist", side_effect=RuntimeError("quota")):
+        _delete_outdated(yt, [mp], playlist_name="Story Highlights")
+    yt.videos().delete.assert_called_with(id="old")
+    assert "youtube-prune" in " ".join(capsys.readouterr().out.split())
+
+
+def test_dead_entries_are_only_those_youtube_cannot_find():
+    yt = MagicMock()
+    item = lambda iid, vid, t="x": {"id": iid, "snippet": {"title": t}, "contentDetails": {"videoId": vid}}
+    _paged(yt.playlistItems(), [{"items": [item("i1", "alive1"), item("i2", "gone", "Deleted video")]},
+                                 {"items": [item("i3", "alive2")]}])
+    yt.videos().list.return_value.execute.return_value = {"items": [{"id": "alive1"}, {"id": "alive2"}]}
+    assert _dead_playlist_entries(yt, "PL") == [("i2", "gone", "Deleted video")]
+
+
+def _prune(answer, dry_run=False):
+    yt = MagicMock()
+    with patch("insta_loader.youtube_uploader._get_credentials"), \
+         patch("insta_loader.youtube_uploader.build", return_value=yt), \
+         patch("insta_loader.youtube_uploader._find_playlist", return_value="PL"), \
+         patch("insta_loader.youtube_uploader._dead_playlist_entries",
+               return_value=[("i2", "gone", "Deleted video")]), \
+         patch("builtins.input", return_value=answer) as asked:
+        prune(YoutubeConfig(username="u"), dry_run=dry_run)
+    return yt, asked
+
+
+def test_prune_removes_only_dead_entries_after_confirmation():
+    yt, _ = _prune("y")
+    yt.playlistItems().delete.assert_called_once_with(id="i2")
+    yt.videos().delete.assert_not_called()  # never touches videos
+
+
+def test_prune_dry_run_and_decline_remove_nothing():
+    yt, asked = _prune("y", dry_run=True)
+    yt.playlistItems().delete.assert_not_called()
+    asked.assert_not_called()
+    yt, _ = _prune("n")
+    yt.playlistItems().delete.assert_not_called()
+
+
+def test_cli_youtube_prune_dispatches():
+    import sys
+    with patch("insta_loader.youtube_uploader.prune") as m:
+        sys.argv = ["insta.py", "youtube-prune", "paveljjiranek", "--all-variants", "--dry-run"]
+        import insta
+        insta.main()
+    cfg, = m.call_args[0]
+    assert cfg.all_variants is True and m.call_args[1] == {"dry_run": True}

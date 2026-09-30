@@ -75,7 +75,8 @@ def _get_credentials(client_secrets_path: Path) -> Credentials:
     return creds
 
 
-def _get_or_create_playlist(youtube, name: str, privacy: str = "unlisted") -> str:
+def _find_playlist(youtube, name: str) -> Optional[str]:
+    """Id of the channel's playlist with this title (case-insensitive), or None."""
     request = youtube.playlists().list(part="snippet", mine=True, maxResults=50)
     while request is not None:
         response = request.execute()
@@ -83,6 +84,29 @@ def _get_or_create_playlist(youtube, name: str, privacy: str = "unlisted") -> st
             if item["snippet"]["title"].lower() == name.lower():
                 return item["id"]
         request = youtube.playlists().list_next(request, response)
+    return None
+
+
+def _remove_from_playlist(youtube, playlist_id: str, video_id: str) -> int:
+    """Remove every entry for video_id from the playlist; returns how many.
+
+    Deleting a video does not remove it from playlists: YouTube leaves a
+    "Deleted video" placeholder behind, so entries are removed explicitly.
+    """
+    resp = youtube.playlistItems().list(
+        part="id", playlistId=playlist_id, videoId=video_id, maxResults=50
+    ).execute()
+    removed = 0
+    for item in resp.get("items", []):
+        youtube.playlistItems().delete(id=item["id"]).execute()
+        removed += 1
+    return removed
+
+
+def _get_or_create_playlist(youtube, name: str, privacy: str = "unlisted") -> str:
+    found = _find_playlist(youtube, name)
+    if found:
+        return found
 
     response = youtube.playlists().insert(
         part="snippet,status",
@@ -151,7 +175,8 @@ def _check_missing_metadata(videos_dir: Path, youtube_dir: Path) -> list:
 
 
 def _delete_outdated(youtube, meta_files: list, base: Optional[Path] = None,
-                     username: Optional[str] = None, variant=None) -> None:
+                     username: Optional[str] = None, variant=None,
+                     playlist_name: Optional[str] = None) -> None:
     """Find uploaded+outdated metadata, confirm with user, delete from YouTube, reset flags.
 
     With base and username given, each entry's title, description, tags, date and
@@ -176,9 +201,18 @@ def _delete_outdated(youtube, meta_files: list, base: Optional[Path] = None,
     if answer != "y":
         return
 
+    playlist_id = _find_playlist(youtube, playlist_name) if playlist_name else None
     for mp, meta in outdated:
         title = meta["youtube"]["title"]
         try:
+            if playlist_id:
+                # Before deleting: a deleted video would otherwise stay in the
+                # playlist as a "Deleted video" placeholder.
+                try:
+                    _remove_from_playlist(youtube, playlist_id, meta["youtube_id"])
+                except Exception as e:
+                    rprint(f"[yellow]⚠  Couldn't remove '{title}' from its playlist ({e}); "
+                           "a placeholder may remain (clean up with youtube-prune).[/yellow]")
             youtube.videos().delete(id=meta["youtube_id"]).execute()
             current = json.loads(mp.read_text(encoding="utf-8"))
             if base is not None and username:
@@ -242,7 +276,8 @@ def run(config: YoutubeConfig) -> None:
 
     # Handle --update: delete outdated uploads first, then reload
     if config.update:
-        _delete_outdated(youtube, all_meta_files, base, config.username, variant)
+        _delete_outdated(youtube, all_meta_files, base, config.username, variant,
+                         playlist_name=config.playlist + variant.title_suffix)
         all_meta_files = list(youtube_dir.glob("*.json"))
 
     # Apply highlight filter
@@ -292,3 +327,73 @@ def run(config: YoutubeConfig) -> None:
             current["upload_error"] = err
             meta_path.write_text(json.dumps(current, indent=2, ensure_ascii=False), encoding="utf-8")
             rprint(f"[red]✗  {prefix} {title} — upload failed: {err}[/red]")
+
+
+def _dead_playlist_entries(youtube, playlist_id: str) -> list:
+    """(playlist_item_id, video_id, title) for entries whose video no longer exists.
+
+    videos.list returns every video the channel owner can see, including their
+    own private and unlisted ones, so an entry with no match has been deleted.
+    """
+    items = []
+    req = youtube.playlistItems().list(
+        part="id,snippet,contentDetails", playlistId=playlist_id, maxResults=50)
+    while req is not None:
+        resp = req.execute()
+        items += resp.get("items", [])
+        req = youtube.playlistItems().list_next(req, resp)
+
+    video_ids = sorted({it["contentDetails"]["videoId"] for it in items})
+    alive = set()
+    for i in range(0, len(video_ids), 50):
+        resp = youtube.videos().list(part="id", id=",".join(video_ids[i:i + 50]), maxResults=50).execute()
+        alive |= {v["id"] for v in resp.get("items", [])}
+    return [(it["id"], it["contentDetails"]["videoId"], it["snippet"].get("title") or "")
+            for it in items if it["contentDetails"]["videoId"] not in alive]
+
+
+def prune(config: YoutubeConfig, dry_run: bool = False) -> None:
+    """Remove "Deleted video" placeholders from the variant playlists.
+
+    Only playlist entries are removed; no video is deleted. An entry counts as
+    dead only if YouTube returns no video for its id.
+    """
+    wanted = variants.resolve(
+        landscape=config.landscape, short=config.short,
+        both_formats=config.both_formats, all_variants=config.all_variants,
+    )
+    youtube = build("youtube", "v3", credentials=_get_credentials(_resolve_secrets_path(config.client_secrets)))
+
+    dead = []
+    for variant in wanted:
+        name = config.playlist + variant.title_suffix
+        playlist_id = _find_playlist(youtube, name)
+        if not playlist_id:
+            rprint(f"[dim]–  {name}: playlist not found, skipping[/dim]")
+            continue
+        entries = _dead_playlist_entries(youtube, playlist_id)
+        rprint(f"{'[yellow]' if entries else '[green]'}{name}: {len(entries)} dead "
+               f"entr{'y' if len(entries) == 1 else 'ies'}{'[/yellow]' if entries else '[/green]'}")
+        dead += [(name, *entry) for entry in entries]
+
+    if not dead:
+        rprint("[green]✓[/green]  Nothing to prune.")
+        return
+    for name, _, video_id, title in dead:
+        rprint(f"   [dim]• {name}: {title or 'Deleted video'}  (youtu.be/{video_id})[/dim]")
+    if dry_run:
+        print("Dry run: nothing removed.")
+        return
+
+    answer = input(f"Remove these {len(dead)} entries from their playlists? "
+                   "No videos are deleted. [y/N]: ").strip().lower()
+    if answer != "y":
+        return
+    removed = 0
+    for name, item_id, _, _ in dead:
+        try:
+            youtube.playlistItems().delete(id=item_id).execute()
+            removed += 1
+        except Exception as e:
+            rprint(f"[red]✗  {name}: couldn't remove an entry: {e}[/red]")
+    rprint(f"[green]✓[/green]  Removed {removed}/{len(dead)} dead playlist entries.")

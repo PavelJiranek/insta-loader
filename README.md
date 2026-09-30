@@ -206,6 +206,24 @@ Token is cached at `~/.config/instaloader/youtube_token.json` after first login.
 
 ---
 
+### `youtube-prune` — remove "Deleted video" placeholders
+
+When a video is deleted, YouTube leaves a **"Deleted video"** entry in every playlist
+that held it. `youtube-upload --update` now removes the playlist entry before deleting a
+replaced video. This command cleans up placeholders already there, or ones left by
+videos you deleted by hand:
+
+```bash
+python3 insta.py youtube-prune <username> --all-variants --dry-run   # list only
+python3 insta.py youtube-prune <username> --all-variants             # asks before removing
+```
+
+Only playlist entries whose video no longer exists are removed; no video is ever deleted.
+Takes the same `--landscape` / `--short` / `--both-formats` / `--all-variants` / `--playlist`
+options as `youtube-upload`.
+
+---
+
 ### `import-session` — log in via your browser (instagrapi backend)
 
 If password login fails with *"Your version of Instagram is out of date"* (Instagram

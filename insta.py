@@ -97,6 +97,19 @@ def main() -> None:
     yt_upload.add_argument("--short", action="store_true", help="Upload the short variant (own playlist, suffixed with · Short)")
     yt_upload.add_argument("--all-variants", dest="all_variants", action="store_true", help="Upload all four variants, each to its own playlist")
 
+    yt_prune = subparsers.add_parser(
+        "youtube-prune",
+        help="Remove 'Deleted video' placeholders from the highlight playlists (no videos are deleted).",
+    )
+    yt_prune.add_argument("username", metavar="insta-username", help="Instagram username (folder name under output/)")
+    yt_prune.add_argument("--client-secrets", dest="client_secrets", default=os.environ.get("YOUTUBE_CLIENT_SECRETS"), help="Path to client_secrets.json (or set YOUTUBE_CLIENT_SECRETS)")
+    yt_prune.add_argument("--playlist", default="Story Highlights", help="Base playlist name (default: Story Highlights)")
+    yt_prune.add_argument("--landscape", action="store_true", help="Prune the · 16:9 playlist")
+    yt_prune.add_argument("--short", action="store_true", help="Prune the · Short playlist(s)")
+    yt_prune.add_argument("--both-formats", dest="both_formats", action="store_true", help="Prune portrait and landscape playlists")
+    yt_prune.add_argument("--all-variants", dest="all_variants", action="store_true", help="Prune all four playlists")
+    yt_prune.add_argument("--dry-run", dest="dry_run", action="store_true", help="List dead entries without removing them")
+
     args = parser.parse_args()
 
     if args.command is None:
@@ -171,6 +184,18 @@ def main() -> None:
             short=args.short,
             all_variants=args.all_variants,
         ))
+
+    elif args.command == "youtube-prune":
+        from insta_loader.youtube_uploader import prune
+        prune(YoutubeConfig(
+            username=args.username,
+            client_secrets=args.client_secrets,
+            playlist=args.playlist,
+            landscape=args.landscape,
+            both_formats=args.both_formats,
+            short=args.short,
+            all_variants=args.all_variants,
+        ), dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
