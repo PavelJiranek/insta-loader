@@ -52,6 +52,15 @@ def _authenticate(login_user: str):
             print("⚠  Saved session is no longer valid (Instagram signed it out).")
             print("   If that happened in the last few hours, logging straight back in can")
             print("   get the account flagged again. Press Ctrl+C now and try later.")
+            # The dead session still sets user_id, and instagrapi's login()
+            # returns True early whenever user_id is set, without ever sending
+            # the password. Drop the session but keep the device identity, so
+            # Instagram sees the same phone logging back in, not a new device.
+            old = cl.get_settings()
+            cl.set_settings({})
+            cl.set_uuids(old.get("uuids", {}))
+            if old.get("device_settings"):
+                cl.set_device(old["device_settings"])
 
     password = getpass.getpass(f"Instagram password for {login_user}: ")
     try:

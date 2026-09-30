@@ -359,3 +359,41 @@ def test_challenge_at_login_exits_cleanly(tmp_path, capsys):
             igd._authenticate("someone")
     assert exc.value.code == 1
     assert "approve it" in capsys.readouterr().out
+
+
+# ── re-login after a revoked session ───────────────────────────────────────────
+
+def test_revoked_session_does_a_real_login_keeping_device(tmp_path):
+    """Regression: a dead session left user_id set, so instagrapi's login()
+    returned early without sending the password and the tool reported success."""
+    settings = tmp_path / "s.json"
+    settings.write_text("{}")
+    fake = MagicMock()
+    fake.get_timeline_feed.side_effect = Exception("login_required")
+    fake.get_settings.return_value = {
+        "uuids": {"uuid": "U", "phone_id": "P"},
+        "device_settings": {"model": "M"},
+        "authorization_data": {"ds_user_id": "1"},
+    }
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=settings), \
+         patch.object(igd.getpass, "getpass", return_value="pw"):
+        igd._authenticate("me")
+
+    order = [c[0] for c in fake.method_calls]
+    assert order.index("set_settings") < order.index("login")  # cleared first
+    fake.set_settings.assert_called_once_with({})
+    fake.set_uuids.assert_called_once_with({"uuid": "U", "phone_id": "P"})  # same device
+    fake.set_device.assert_called_once_with({"model": "M"})
+    fake.login.assert_called_once_with("me", "pw")
+
+
+def test_valid_saved_session_is_reused_without_login(tmp_path):
+    settings = tmp_path / "s.json"
+    settings.write_text("{}")
+    fake = MagicMock()
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=settings):
+        assert igd._authenticate("me") is fake
+    fake.login.assert_not_called()
+    fake.set_settings.assert_not_called()
