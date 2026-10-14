@@ -528,3 +528,60 @@ def test_private_lookup_block_is_reported_cleanly(tmp_path, capsys):
             igd.run(make_config(username="natgeo", login_user="me", output_dir=str(tmp_path)))
     assert exc.value.code == 1
     assert "signed this session out" in capsys.readouterr().out
+
+
+# ── forced password login (`insta.py login`) ───────────────────────────────────
+
+def test_login_forces_real_login_even_with_a_saved_session(tmp_path):
+    settings = tmp_path / "s.json"
+    settings.write_text("{}")
+    fake = MagicMock()
+    fake.get_settings.return_value = {"uuids": {"uuid": "U"}, "device_settings": {"model": "M"}}
+    fake.dump_settings.side_effect = lambda p: Path(p).write_text("{}")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=settings), \
+         patch.object(igd.getpass, "getpass", return_value="pw"):
+        igd.login("me")
+
+    fake.get_timeline_feed.assert_not_called()          # never trusts the quick check
+    order = [c[0] for c in fake.method_calls]
+    assert order.index("set_settings") < order.index("login")  # stale session cleared first
+    fake.set_uuids.assert_called_once_with({"uuid": "U"})       # same device
+    fake.login.assert_called_once_with("me", "pw")
+    assert (settings.stat().st_mode & 0o777) == 0o600
+
+
+def test_login_handles_2fa(tmp_path):
+    from instagrapi import exceptions as E
+    fake = MagicMock()
+    fake.login.side_effect = [E.TwoFactorRequired("2fa"), True]
+    fake.dump_settings.side_effect = lambda p: Path(p).write_text("{}")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=tmp_path / "s.json"), \
+         patch.object(igd.getpass, "getpass", return_value="pw"), \
+         patch("builtins.input", return_value=" 123456 "):
+        igd.login("me")
+    assert fake.login.call_args_list[-1] == (("me", "pw"), {"verification_code": "123456"})
+
+
+def test_out_of_date_hint_says_check_password_first(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    fake = MagicMock()
+    fake.login.side_effect = E.UnknownError(message="Your version of Instagram is out of date.")
+    with patch("instagrapi.Client", return_value=fake), \
+         patch.object(igd, "_settings_path", return_value=tmp_path / "none.json"), \
+         patch.object(igd.getpass, "getpass", return_value="pw"):
+        with pytest.raises(SystemExit):
+            igd.login("me")
+    out = " ".join(capsys.readouterr().out.split())
+    assert "check the password" in out and "import-session me" in out
+    assert not (tmp_path / "none.json").exists()  # nothing saved on failure
+
+
+def test_cli_login_dispatches():
+    import sys
+    with patch("insta_loader.instagrapi_downloader.login") as m:
+        sys.argv = ["insta.py", "login", "paveljjiranek"]
+        import insta
+        insta.main()
+    m.assert_called_once_with("paveljjiranek")

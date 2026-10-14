@@ -224,6 +224,19 @@ options as `youtube-upload`.
 
 ---
 
+### `login` — fresh password login (instagrapi backend)
+
+```bash
+python3 insta.py login <your_username>
+```
+
+Logs in with your password (and 2FA code) and saves the session, even if the saved one
+still looks valid. That's useful after Instagram has signed you out, because the automatic
+re-login only triggers when the tool's quick session check fails. It keeps the same
+device identity. If Instagram asks you to confirm the login in the app, approve it.
+
+---
+
 ### `import-session` — log in via your browser (instagrapi backend)
 
 If password login fails with *"Your version of Instagram is out of date"* (Instagram

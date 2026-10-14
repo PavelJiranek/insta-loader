@@ -8,6 +8,7 @@ Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- `login <username>` command: forces a fresh password (+2FA) login for the instagrapi backend and saves the session, even if the saved one still passes the quick check. That check can pass while real requests are refused. It keeps the saved device identity. The "out of date" failure message now tells you to check the password first, since Instagram reports a wrong password the same way.
 - `youtube-prune <username>` command: removes "Deleted video" placeholders from the highlight playlists, i.e. entries whose video no longer exists on YouTube. `--dry-run` lists them; otherwise it asks before removing. It never deletes a video. Takes the usual variant flags.
 - `import-session <username>` command: log in by pasting the `sessionid` cookie from a browser where you're logged into instagram.com, instead of a password login. For accounts where Instagram refuses password logins from the tool with "Your version of Instagram is out of date" (instagrapi issue #2807, seen on 2FA accounts). The login happens in the browser as a normal human login. The tool checks the session belongs to the named account, keeps the saved device identity, and stores the value owner-only. A failed password login with that error now points to this command instead of printing a traceback.
 - `INSTA_API_SLEEP` env var: seconds to wait before each Instagram API call (default `INSTA_SLEEP`, minimum 2s), separate from the download pause.

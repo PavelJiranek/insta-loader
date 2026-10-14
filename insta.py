@@ -61,6 +61,12 @@ def main() -> None:
     vid.add_argument("--max-slide-duration", dest="max_slide_duration", type=int, default=10, metavar="SECONDS", help="Cap for static slides in the short variant (default: 10)")
     vid.add_argument("--no-sleep", dest="no_sleep", action="store_true", help="Prevent macOS from sleeping during encoding (uses caffeinate)")
 
+    lg = subparsers.add_parser(
+        "login",
+        help="Force a fresh password (+2FA) login for the instagrapi backend and save the session.",
+    )
+    lg.add_argument("username", help="Your Instagram username")
+
     imp = subparsers.add_parser(
         "import-session",
         help="Log in by pasting the sessionid cookie from a browser (instagrapi backend).",
@@ -149,6 +155,10 @@ def main() -> None:
             max_slide_duration=args.max_slide_duration,
             no_sleep=args.no_sleep,
         ))
+
+    elif args.command == "login":
+        from insta_loader.instagrapi_downloader import login
+        login(args.username)
 
     elif args.command == "import-session":
         from insta_loader.instagrapi_downloader import import_session

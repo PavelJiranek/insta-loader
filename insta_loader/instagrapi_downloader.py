@@ -131,7 +131,6 @@ def import_session(login_user: str) -> None:
 def _authenticate(login_user: str):
     """Return a logged-in instagrapi Client, reusing a saved session when possible."""
     from instagrapi import Client
-    from instagrapi.exceptions import TwoFactorRequired, UnknownError
 
     cl = Client()
     settings = _settings_path(login_user)
@@ -150,6 +149,18 @@ def _authenticate(login_user: str):
             print("   get the account flagged again. Press Ctrl+C now and try later.")
             _reset_session_keep_device(cl)
 
+    _password_login(cl, login_user, settings)
+    return cl
+
+
+def _password_login(cl, login_user: str, settings: Path) -> None:
+    """Log in with password (+ 2FA) and save the session. Exits cleanly on failure.
+
+    The caller must have cleared any stale session first (see
+    _reset_session_keep_device), or instagrapi's login() returns early.
+    """
+    from instagrapi.exceptions import TwoFactorRequired, UnknownError
+
     password = getpass.getpass(f"Instagram password for {login_user}: ")
     try:
         try:
@@ -163,14 +174,34 @@ def _authenticate(login_user: str):
     except UnknownError as e:
         if "out of date" not in str(e).lower():
             raise
-        print("\n✗  Instagram is refusing password logins from this tool for your account")
-        print("   (\"Your version of Instagram is out of date\"; a known instagrapi issue that")
-        print("   hits 2FA accounts). Log in on instagram.com in your browser instead and")
-        print(f"   import that session:  python3 insta.py import-session {login_user}")
+        print("\n✗  Instagram answered \"Your version of Instagram is out of date\".")
+        print("   First check the password: Instagram reports a wrong password with this same")
+        print("   message. Don't retry more than once. If the password is right, Instagram is")
+        print("   refusing password logins from this tool for your account (instagrapi #2807).")
+        print(f"   Use your browser's session instead:  python3 insta.py import-session {login_user}")
         sys.exit(1)
     _save_settings(cl, settings)
     print(f"✓  Logged in and saved session to {settings}")
-    return cl
+
+
+def login(login_user: str) -> None:
+    """Force a fresh password login, even if the saved session still looks valid.
+
+    The automatic re-login only happens when the quick session check fails, and
+    that check can pass while real requests are refused. This keeps the saved
+    device identity, like the automatic re-login does.
+    """
+    from instagrapi import Client
+
+    cl = Client()
+    settings = _settings_path(login_user)
+    if settings.exists():
+        try:
+            cl.load_settings(settings)
+        except Exception:
+            pass
+        _reset_session_keep_device(cl)
+    _password_login(cl, login_user, settings)
 
 
 def _base_tray_params(cl) -> dict:
