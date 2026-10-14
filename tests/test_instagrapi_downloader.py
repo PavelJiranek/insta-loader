@@ -494,3 +494,37 @@ def test_cli_import_session_dispatches():
         import insta
         insta.main()
     m.assert_called_once_with("paveljjiranek")
+
+
+# ── resolving the account id ───────────────────────────────────────────────────
+
+def test_own_account_id_comes_from_session_without_any_request(no_api_pause):
+    cl = MagicMock()
+    cl.user_id = "1118595057"
+    assert igd._resolve_user_id(cl, make_config(username="PavelJJiranek", login_user="paveljjiranek")) == 1118595057
+    cl.user_info_by_username_v1.assert_not_called()
+    cl.user_id_from_username.assert_not_called()
+    no_api_pause.assert_not_called()
+
+
+def test_other_account_uses_private_lookup_not_public_fallback(no_api_pause):
+    """Regression: user_id_from_username() fell back to the public web_profile_info
+    endpoint, whose 401 hid the private API's real error."""
+    cl = MagicMock()
+    cl.user_id = "1"
+    cl.user_info_by_username_v1.return_value.pk = "42"
+    assert igd._resolve_user_id(cl, make_config(username="natgeo", login_user="me")) == 42
+    cl.user_info_by_username_v1.assert_called_once_with("natgeo")
+    cl.user_id_from_username.assert_not_called()
+    no_api_pause.assert_called_once()
+
+
+def test_private_lookup_block_is_reported_cleanly(tmp_path, capsys):
+    from instagrapi import exceptions as E
+    cl = MagicMock()
+    cl.user_info_by_username_v1.side_effect = E.LoginRequired("login_required")
+    with patch.object(igd, "_authenticate", return_value=cl), patch.object(igd, "summarizer"):
+        with pytest.raises(SystemExit) as exc:
+            igd.run(make_config(username="natgeo", login_user="me", output_dir=str(tmp_path)))
+    assert exc.value.code == 1
+    assert "signed this session out" in capsys.readouterr().out

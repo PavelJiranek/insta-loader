@@ -289,10 +289,24 @@ def run(config: Config) -> None:
         sys.exit(1)
 
 
+def _resolve_user_id(cl, config: Config) -> int:
+    """Numeric id of the account to download.
+
+    For your own account it comes straight from the logged-in session, with no
+    request at all. Other accounts use the private API lookup directly:
+    instagrapi's user_id_from_username() falls back to a public web endpoint
+    (web_profile_info) when the private call fails, and that endpoint answers
+    401 now, which hides the private call's real error.
+    """
+    if cl.user_id and config.login_user and config.username.lower() == config.login_user.lower():
+        return int(cl.user_id)
+    _dl._api_pause()
+    return int(cl.user_info_by_username_v1(config.username).pk)
+
+
 def _run(cl, config: Config, state: dict) -> None:
     try:
-        _dl._api_pause()
-        user_id = int(cl.user_id_from_username(config.username))
+        user_id = _resolve_user_id(cl, config)
     except _blocked_errors():
         raise
     except Exception as e:
